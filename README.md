@@ -8,28 +8,21 @@ bit-stream correlation for header/payload identification.
 
 ## Architecture
 
-Three independent layers, per the design in `Idea.txt`:
-
 ```
-frontend/   plain HTML + CSS + JS (no framework, no build step)
-backend/    FastAPI — upload, job orchestration, WebSocket progress, results
-core/       the actual DSP engine — numpy/scipy, zero HTTP/UI dependencies
+gui/          Tkinter desktop app: file input, configuration, plots, results
+core/         the DSP engine: numpy/scipy only, no UI dependencies
 ```
 
-`core/` is directly testable and runnable on its own — see
-`tests/core/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and
-runs it through the full pipeline with no server involved:
+`core/` is directly testable and runnable on its own -- see
+`tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and
+runs it through the full pipeline:
 
 ```bash
-python -m tests.core.test_pipeline_smoke
+python -m tests.test_pipeline_smoke
 ```
 
-The backend is a thin orchestrator: `POST /api/upload` stores the file,
-`POST /api/analysis/start` runs `core.pipeline.analyzer.run_pipeline()` in a
-worker thread and streams progress over `/ws/analysis/{job_id}`, and
-`GET /api/results/{job_id}` returns the full `AnalysisResult`. The frontend
-never does DSP — it only uploads, configures, polls/watches progress, and
-renders results on `<canvas>`.
+The desktop app runs `core.pipeline.analyzer.run_pipeline()` in a background
+thread and renders the result; it does no DSP itself.
 
 ### Pipeline stages (`core/pipeline/analyzer.py`)
 
@@ -47,33 +40,33 @@ Input Loader (iq_reader/wav_reader)
   -> Header / Payload identification
 ```
 
-## Running it
+## Running the app
 
 ```bash
-# 1. Install backend deps (uses the "iqfile" conda env in this workspace)
-pip install -r backend/requirements.txt
-
-# 2. Start the server (also serves the frontend as static files)
-python -m uvicorn backend.app.main:app --port 8000
-
-# 3. Open http://localhost:8000/ in a browser
+pip install -r requirements.txt
+python main.py
 ```
+
+Single window: left panel for file input and configuration, right panel with
+two tabs (Visualization; Analysis, which shows parameters, hypotheses, recovery and results together). Hypotheses
+and the full report can be exported as CSV / JSON. Try it with the files in
+`samples/`.
 
 ## Accuracy (measured, not claimed)
 
-`tests/core/test_accuracy_report.py` builds signals with known ground-truth
+`tests/test_accuracy_report.py` builds signals with known ground-truth
 modulation/symbol-rate/bits, runs them through the real pipeline, and
 compares the output numerically (not just "best hypothesis label matches").
-Run it with `python -m tests.core.test_accuracy_report`.
+Run it with `python -m tests.test_accuracy_report`.
 
-As of the current build, across BPSK/QPSK/16-QAM/2-FSK at 5/15/25 dB SNR:
-modulation classification 8/12 (67%), mean symbol-rate error ~6%, mean BER
-(best-case alignment) ~0.25. Symbol-rate estimation is now essentially exact
-(0% error) at 15/25 dB SNR for every modulation tested, including FSK. At
-25/15 dB SNR, BPSK/QPSK/16-QAM/2-FSK all demodulate correctly, several with
-0% or near-0% BER. Remaining failures concentrate specifically at 5 dB SNR
-(low-SNR modulation confusion is expected even for mature classifiers) and,
-less often, 16-QAM at 15 dB.
+Measured with fixed, deterministic seeds (reproducible run to run), across
+BPSK/QPSK/16-QAM/2-FSK at 5/15/25 dB SNR: modulation classification 6/12
+(50%), mean symbol-rate error ~4.2%, mean BER (best-case alignment) ~0.33.
+Symbol-rate estimation is essentially exact (0% error) at 15/25 dB SNR for
+every modulation tested, including FSK. Most classification errors are at
+5 dB SNR (low-SNR modulation confusion) and, less often, 16-QAM at 15 dB.
+Earlier figures of 67% / 0.25 came from a non-deterministic test seed and
+should not be relied on.
 
 Four real correctness bugs were found and fixed via this test during
 development, in case similar patterns turn up elsewhere:
@@ -125,17 +118,27 @@ development, in case similar patterns turn up elsewhere:
   average-energy phase); it does not interpolate for non-integer
   samples-per-symbol ratios, which costs some accuracy when sample_rate /
   symbol_rate isn't close to a whole number.
-- Analysis runs synchronously in a worker thread per job (in-memory job
-  store); this is fine for a single-instance prototype, not a multi-worker
-  deployment.
 
 ## Project layout
 
 ```
-core/            independent signal-processing engine (see above)
-backend/app/     FastAPI orchestration layer
-frontend/        plain HTML/CSS/JS UI (7-panel workflow: Input -> Configuration
-                 -> Visualization -> Automated Analysis -> Hypotheses -> Recovery -> Results)
-tests/core/      standalone core pipeline tests
-data/            uploads / intermediate / results (gitignored contents)
+core/            signal-processing engine
+  io/              read .iq / .wav, parse metadata
+  preprocessing/   normalization, denoising, resampling, retry profiles
+  isolation/       spectrum, band/channel detection, segmentation
+  feature_extraction/  spectral, temporal, statistical, cyclostationary
+  estimation/      sample rate, symbol rate, carrier, SNR
+  hypotheses/      candidate generation (modulation, FEC, interleaving)
+  scoring/         evidence scoring and confidence
+  demodulation/    PSK, QAM, FSK, synchronization
+  deinterleaving/  block, convolutional, diagonal, pseudo-random
+  fec/             Viterbi, Reed-Solomon, concatenated, LDPC
+  correlation/     bit-stream correlation, header/payload detection
+  pipeline/        orchestrator (analyzer), config, stages, result models
+gui/             Tkinter desktop UI (app.py, plots.py, style.py); launched by main.py
+tests/           pipeline smoke test and accuracy report
+samples/         small synthetic .iq / .wav files for trying the app
+docs/            design notes
+main.py           entry point (launches the GUI)
+requirements.txt
 ```

@@ -1,4 +1,4 @@
-"""Modulation candidates as objects (per Idea.txt §8) rather than hardcoded
+"""Modulation candidates as objects (per docs/design_notes.txt §8) rather than hardcoded
 if/else branches. Each candidate knows how to demodulate itself and extract
 real evidence; the scorer (core/scoring) turns evidence into a score."""
 import numpy as np

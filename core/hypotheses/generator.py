@@ -1,6 +1,6 @@
-from core.hypotheses.modulation import build_candidates
-from core.hypotheses.fec import build_fec_candidates
-from core.hypotheses.interleaving import build_interleaving_candidates
+from core.hypotheses.modulation_candidates import build_candidates
+from core.hypotheses.fec_candidates import build_fec_candidates
+from core.hypotheses.interleaving_candidates import build_interleaving_candidates
 
 
 def generate_hypothesis_space(sample_rate: float, symbol_rate: float, config: dict, snr_db: float = None) -> dict:

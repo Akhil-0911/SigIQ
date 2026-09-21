@@ -1,6 +1,6 @@
 """Runs the core signal-processing engine standalone (no FastAPI, no React) on
 a synthetic BPSK signal, proving the pipeline is independently executable and
-testable as required by the architecture (Idea.txt §14)."""
+testable as required by the architecture (docs/design_notes.txt §14)."""
 import numpy as np
 
 from core.pipeline.models import RawSignal

@@ -1,7 +1,7 @@
 """Shared data models passed between core stages.
 
 Every stage consumes and returns one of these instead of a raw dict, so the
-pipeline stays traceable end to end (see architecture notes in Idea.txt, §10).
+pipeline stays traceable end to end (see architecture notes in docs/design_notes.txt, §10).
 """
 from __future__ import annotations
 

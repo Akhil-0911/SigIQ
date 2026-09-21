@@ -1,9 +1,8 @@
 """Central orchestrator: RawSignal -> AnalysisResult.
 
-This module has no FastAPI/HTTP knowledge -- it is directly unit-testable
-and runnable from a plain Python script (see tests/core/test_pipeline_smoke.py).
-The backend's analysis_worker just calls `run_pipeline()` and republishes its
-progress callback over a WebSocket.
+This module has no UI knowledge -- it is directly unit-testable and runnable
+from a plain Python script (see tests/test_pipeline_smoke.py). UIs call
+`run_pipeline()` and receive progress through its callback.
 """
 import numpy as np
 
