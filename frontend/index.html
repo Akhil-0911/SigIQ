@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Signal Analysis Workstation</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header>
+  <h1>Signal Analysis Workstation</h1>
+  <p>.IQ / .WAV parameter extraction, demodulation, de-interleaving, FEC decoding, bit-stream correlation</p>
+</header>
+
+<main>
+
+  <div class="split-row">
+    <section id="sec-upload" class="split-col">
+      <h2>1. Input file</h2>
+      <div class="dropzone" id="dropzone">
+        <span>Drop a .iq or .wav file here, or click to browse</span>
+        <input type="file" id="file-input" accept=".iq,.wav" hidden />
+      </div>
+      <table class="kv" id="table-upload"></table>
+    </section>
+
+    <section id="sec-config" class="split-col">
+      <h2>2. Configuration</h2>
+
+      <div class="row">
+        <label>Format<input type="text" id="cfg-format" readonly /></label>
+        <label id="cfg-samplerate-wrap">Sample rate (Hz)<input type="number" id="cfg-samplerate" placeholder="required for .iq" /></label>
+        <label id="cfg-dtype-wrap">IQ sample format
+          <select id="cfg-dtype">
+            <option value="float32">float32</option>
+            <option value="int16">int16</option>
+            <option value="int8">int8</option>
+            <option value="uint8">uint8</option>
+            <option value="float64">float64</option>
+          </select>
+        </label>
+        <label>Center frequency (Hz)<input type="number" id="cfg-centerfreq" value="0" /></label>
+      </div>
+
+      <div class="row mode-row">
+        <label><input type="radio" name="mode" value="automatic" checked /> Automatic — try all candidates</label>
+        <label><input type="radio" name="mode" value="manual" /> Manual — specify parameters</label>
+      </div>
+
+      <div id="manual-config" class="row hidden">
+        <label>Modulation<select id="cfg-manual-mod"></select></label>
+        <label>Symbol rate (Hz)<input type="number" id="cfg-manual-symrate" placeholder="e.g. 9600" /></label>
+        <label>De-interleaving<select id="cfg-manual-deint"></select></label>
+        <label>FEC<select id="cfg-manual-fec"></select></label>
+      </div>
+
+      <div id="auto-config">
+        <fieldset>
+          <legend>Modulations to try</legend>
+          <div class="checkbox-row" id="mod-checkboxes"></div>
+        </fieldset>
+        <fieldset>
+          <legend>De-interleaving types to try</legend>
+          <div class="checkbox-row" id="deint-checkboxes"></div>
+        </fieldset>
+        <fieldset>
+          <legend>FEC types to try</legend>
+          <div class="checkbox-row" id="fec-checkboxes"></div>
+        </fieldset>
+      </div>
+
+      <button id="btn-analyze" disabled>Run analysis</button>
+      <div id="progress-box" class="hidden">
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <p id="progress-text"></p>
+      </div>
+    </section>
+  </div>
+
+</main>
+
+<footer>
+  <p>Signal core runs independently of this UI — see <code>core/</code> and <code>tests/core/test_pipeline_smoke.py</code>.</p>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/state.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

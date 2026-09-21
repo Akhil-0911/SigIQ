@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vscode/
+data/uploads/*
+!data/uploads/.gitkeep
+data/intermediate/*
+!data/intermediate/.gitkeep
+data/results/*
+!data/results/.gitkeep
+.DS_Store
