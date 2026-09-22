@@ -76,10 +76,10 @@ core/         the DSP engine: numpy/scipy only, no UI dependencies
 
 ```mermaid
 flowchart LR
-    A[".iq / .wav file"] --> B["gui/app.py<br/>file input + configuration"]
-    B --> C["core.pipeline.analyzer.run_pipeline()<br/>background thread"]
-    C --> D["AnalysisResult<br/>parameters, hypotheses, recovery, provenance"]
-    D --> E["gui/plots.py + result tabs<br/>render only, no DSP"]
+    A[".iq / .wav file"] --> B[File input + config]
+    B --> C[run_pipeline]
+    C --> D[AnalysisResult]
+    D --> E[Result tabs render]
 ```
 
 `core/` has no import of `gui/`, and is directly testable and runnable on its own. See
@@ -100,24 +100,24 @@ result. It performs no DSP itself.
 Implemented in `core/pipeline/analyzer.py`.
 
 ```mermaid
-flowchart TD
-    L["Input Loader<br/>iq_reader / wav_reader / metadata_parser"] --> P["Preprocessing profile<br/>DC removal, power normalization, optional denoising"]
-    P --> I["Isolation<br/>energy segmentation, strongest-channel detection"]
-    I --> F["Feature Extraction<br/>spectral, temporal, statistical"]
-    F --> E["Parameter Estimation<br/>symbol rate, carrier offset, bandwidth"]
-    E --> G["Candidate Generation<br/>BPSK / QPSK / 16-QAM / 2-FSK / 4-FSK"]
-    G --> S["Candidate processing + Evidence Scoring<br/>constellation_fit, order_consistency, timing_fit"]
-    S --> W{"Weak or ambiguous,<br/>and attempts remain?"}
-    W -- yes --> R["Re-estimation search<br/>bounded search over symbol rate,<br/>carrier offset, low-pass cutoff"]
+flowchart LR
+    L[Input Loader] --> P[Preprocessing]
+    P --> I[Isolation]
+    I --> F[Feature Extraction]
+    F --> E[Parameter Estimation]
+    E --> G[Candidate Generation]
+    G --> S[Evidence Scoring]
+    S --> W{Weak or ambiguous?}
+    W -- yes --> R[Re-estimation search]
     R --> S
-    W -- no --> V["Best-supported hypothesis + verdict"]
-    V --> D["De-interleaving x FEC decoding<br/>joint search, ranked by header correlation + FEC success"]
-    D --> H["Known sync-word matching<br/>CCSDS ASM, HDLC flag, Barker-11"]
-    H --> PL["Header / payload extraction"]
-    PL --> RI["Recovered information"]
+    W -- no --> V[Best hypothesis + verdict]
+    V --> D[De-interleave x FEC]
+    D --> H[Sync-word matching]
+    H --> PL[Header / payload]
+    PL --> RI[Recovered information]
 ```
 
-Reference form of the same flow, with the detail each arrow's box above summarizes:
+Each box above is one stage; the exact detail behind it:
 
 ```
 Input Loader (iq_reader / wav_reader, metadata_parser)
@@ -164,19 +164,23 @@ Notes on what this does and does not do:
 Implemented in `core/scoring/verdict.py`, checked in this exact order:
 
 ```mermaid
-flowchart TD
-    Start(["Scored candidate hypotheses"]) --> Chk0{"Any hypotheses<br/>could be evaluated?"}
-    Chk0 -- no --> Ins["insufficient_evidence"]
-    Chk0 -- yes --> Chk1{"Modulation was<br/>manually selected?"}
-    Chk1 -- yes --> Us["user_selected"]
-    Chk1 -- no --> Chk2{"Timing fit >=<br/>minimum threshold?"}
+flowchart LR
+    Start([Scored hypotheses]) --> Chk0{Any hypotheses?}
+    Chk0 -- no --> Ins[insufficient_evidence]
+    Chk0 -- yes --> Chk1{Manual selection?}
+    Chk1 -- yes --> Us[user_selected]
+    Chk1 -- no --> Chk2{Timing fit ok?}
     Chk2 -- no --> Ins
-    Chk2 -- yes --> Chk3{"Best score >=<br/>minimum score?"}
+    Chk2 -- yes --> Chk3{Score ok?}
     Chk3 -- no --> Ins
-    Chk3 -- yes --> Chk4{"Best score - runner-up score<br/>>= ambiguity margin?"}
-    Chk4 -- no --> Amb["ambiguous"]
-    Chk4 -- yes --> Det["determined"]
+    Chk3 -- yes --> Chk4{Margin ok?}
+    Chk4 -- no --> Amb[ambiguous]
+    Chk4 -- yes --> Det[determined]
 ```
+
+"Timing fit ok" means at or above the minimum timing-fit threshold; "Score ok" means the best score is at
+or above the minimum score; "Margin ok" means the best score beats the runner-up by at least the
+ambiguity margin.
 
 ## 5. Installation
 
