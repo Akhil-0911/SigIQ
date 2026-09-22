@@ -80,8 +80,6 @@ flowchart LR
     B --> C[run_pipeline]
     C --> D[AnalysisResult]
     D --> E[Result tabs render]
-
-    classDef default fill:#eef2ff,stroke:#3b4bd8,stroke-width:1px,color:#111827;
 ```
 
 `core/` has no import of `gui/`, and is directly testable and runnable on its own. See
@@ -116,10 +114,6 @@ flowchart LR
         D --> H[Sync-word matching] --> PL[Header / payload] --> RI[Recovered information]
     end
     W -- no --> V
-
-    classDef default fill:#eef2ff,stroke:#3b4bd8,stroke-width:1px,color:#111827;
-    style Part1 fill:#ffffff,stroke:#9ca3af,stroke-width:1px,color:#111827;
-    style Part2 fill:#ffffff,stroke:#9ca3af,stroke-width:1px,color:#111827;
 ```
 
 Each box above is one stage; the exact detail behind it:
@@ -181,14 +175,6 @@ flowchart LR
     Chk3 -- yes --> Chk4{Margin ok?}
     Chk4 -- no --> Amb[ambiguous]
     Chk4 -- yes --> Det[determined]
-
-    classDef default fill:#eef2ff,stroke:#3b4bd8,stroke-width:1px,color:#111827;
-    classDef bad fill:#fee2e2,stroke:#dc2626,color:#111827;
-    classDef warn fill:#fef3c7,stroke:#d97706,color:#111827;
-    classDef good fill:#dcfce7,stroke:#16a34a,color:#111827;
-    class Ins bad;
-    class Amb warn;
-    class Us,Det good;
 ```
 
 "Timing fit ok" means at or above the minimum timing-fit threshold; "Score ok" means the best score is at
