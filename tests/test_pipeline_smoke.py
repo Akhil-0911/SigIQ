@@ -1,6 +1,6 @@
 """Runs the core signal-processing engine standalone (no FastAPI, no React) on
 a synthetic BPSK signal, proving the pipeline is independently executable and
-testable as required by the architecture (docs/design_notes.txt §14)."""
+testable as required by the architecture."""
 import numpy as np
 
 from core.pipeline.models import RawSignal
@@ -29,7 +29,6 @@ def main():
                      center_frequency=0.0, filename="synthetic_bpsk.iq")
 
     config = PipelineConfig.from_dict({
-        "input": {"format": "iq", "sample_rate": sample_rate},
         "analysis": {"mode": "automatic"},
         "modulations": ["BPSK", "QPSK", "16-QAM", "2-FSK", "4-FSK"],
         "deinterleaving": {"enabled": True, "types": ["block", "pseudo_random"]},

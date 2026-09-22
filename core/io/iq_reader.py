@@ -22,7 +22,5 @@ def read_iq(path: str, sample_rate: float, center_frequency: float = 0.0,
         sample_rate=float(sample_rate),
         source_format="iq",
         center_frequency=float(center_frequency),
-        bit_depth=dt.itemsize * 8,
-        channels=1,
         filename=path,
     )

@@ -1,0 +1,12 @@
+name: iqfile
+channels:
+  - defaults
+dependencies:
+  - python=3.10
+  - tk=8.6
+  - pip
+  - pip:
+      - numpy==2.2.6
+      - scipy==1.15.3
+      - matplotlib==3.10.9
+      - reedsolo==1.7.0

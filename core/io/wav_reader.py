@@ -33,7 +33,5 @@ def read_wav(path: str, center_frequency: float = 0.0, iq_stereo: bool = True) -
         sample_rate=float(sample_rate),
         source_format="wav",
         center_frequency=float(center_frequency),
-        bit_depth=None,
-        channels=channels,
         filename=path,
     )

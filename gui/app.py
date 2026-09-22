@@ -1,8 +1,10 @@
 """Signal Analysis Workstation -- native Tkinter desktop app.
 
-Single window: left panel for file input + configuration, right panel for
-tabbed analysis output (visualization, parameters, hypotheses, recovery,
-results). Calls straight into core/.
+Single window: left panel for file input + configuration, right panel with
+tabs matching the pipeline stages -- Signal Isolation, Evidence Extraction,
+Hypothesis & Demodulation, and Recovery Information. Each tab carries its own
+plots (waveform/waterfall, spectrum, constellation) alongside its data, rather
+than a separate Visualization tab. Calls straight into core/.
 """
 import os
 import sys
@@ -25,11 +27,17 @@ from core.pipeline.analyzer import run_pipeline
 from core.hypotheses.modulation_candidates import CANDIDATE_REGISTRY
 from core.hypotheses.fec_candidates import FEC_CANDIDATES
 from core.hypotheses.interleaving_candidates import INTERLEAVING_CANDIDATES
+from core.correlation.payload_detection import bits_to_hex
 
-from gui.style import apply_theme, PANEL, BG, MUTED, TEXT, GOOD, BAD, ACCENT
-from gui.plots import AnalysisPlots
+from gui.style import apply_theme, MUTED, TEXT, GOOD, BAD, ACCENT
+from gui.plots import WaveformWaterfallPlots, SpectrumPlot, ConstellationPlot
 
 IQ_DTYPES = ["int8", "uint8", "int16", "float32", "float64"]
+
+VERDICT_COLORS = {"determined": GOOD, "user_selected": ACCENT, "ambiguous": "#b26a00",
+                  "insufficient_evidence": BAD}
+VERDICT_TITLES = {"determined": "Determined", "user_selected": "User-selected", "ambiguous": "Ambiguous",
+                  "insufficient_evidence": "Insufficient evidence"}
 
 
 def to_jsonable(obj):
@@ -64,6 +72,10 @@ class SignalAnalysisApp(tk.Tk):
         width, height = min(1500, int(sw * 0.94)), min(980, int(sh * 0.92))
         self.geometry(f"{width}x{height}+{(sw - width) // 2}+{max(0, (sh - height) // 2 - 20)}")
         self.minsize(1000, 640)
+        try:
+            self.state("zoomed")  # open maximized (Windows); falls back to the sized geometry above elsewhere
+        except tk.TclError:
+            pass
         apply_theme(self)
 
         self.file_path = None
@@ -221,75 +233,164 @@ class SignalAnalysisApp(tk.Tk):
         self.notebook = ttk.Notebook(parent)
         self.notebook.pack(fill="both", expand=True)
 
-        self.tab_viz = ttk.Frame(self.notebook, style="Inner.TFrame")
-        self.tab_analysis = ttk.Frame(self.notebook, style="Inner.TFrame", padding=12)
-        self.notebook.add(self.tab_viz, text="Visualization")
-        self.notebook.add(self.tab_analysis, text="Analysis")
+        self.tab_isolation = ttk.Frame(self.notebook, style="Inner.TFrame", padding=12)
+        self.tab_evidence = ttk.Frame(self.notebook, style="Inner.TFrame", padding=12)
+        self.tab_hypothesis = ttk.Frame(self.notebook, style="Inner.TFrame", padding=12)
+        self.tab_recovery = ttk.Frame(self.notebook, style="Inner.TFrame", padding=12)
+        self.notebook.add(self.tab_isolation, text="Signal Isolation")
+        self.notebook.add(self.tab_evidence, text="Evidence Extraction")
+        self.notebook.add(self.tab_hypothesis, text="Hypothesis & Demodulation")
+        self.notebook.add(self.tab_recovery, text="Recovery Information")
 
-        self.plots = AnalysisPlots(self.tab_viz)
-        self._build_analysis_tab()
+        self._build_isolation_tab()
+        self._build_evidence_tab()
+        self._build_hypothesis_tab()
+        self._build_recovery_tab()
 
-    def _section(self, parent, row, column, title):
-        """A titled cell of the Analysis grid; returns the frame to fill."""
+    def _section(self, parent, title, side=None, **pack_kwargs):
+        """A titled block within a tab; returns the frame to fill."""
         cell = ttk.Frame(parent, style="Inner.TFrame")
-        cell.grid(row=row, column=column, sticky="nsew",
-                  padx=(0 if column == 0 else 8, 8 if column == 0 else 0),
-                  pady=(0 if row == 0 else 8, 8 if row == 0 else 0))
+        cell.pack(side=side, fill=pack_kwargs.pop("fill", "both"), expand=pack_kwargs.pop("expand", True),
+                  **pack_kwargs)
         ttk.Label(cell, text=title, style="SectionHeading.TLabel").pack(anchor="w", pady=(0, 4))
         return cell
 
-    def _build_analysis_tab(self):
-        grid = self.tab_analysis
-        for i in (0, 1):
-            grid.grid_columnconfigure(i, weight=1, uniform="col")
-            grid.grid_rowconfigure(i, weight=1, uniform="row")
+    # Tab 1 -- Signal Isolation: which part of the recording and which
+    # channel the rest of the pipeline analyses (core/isolation/), plus the
+    # waveform/waterfall views of that isolated segment.
+    def _build_isolation_tab(self):
+        tab = self.tab_isolation
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(1, weight=1)
 
-        params = self._section(grid, 0, 0, "Parameters")
-        self.tree_params = self._make_kv_tree(params, height=9)
-        self.tree_params.pack(fill="both", expand=True)
+        section = ttk.Frame(tab, style="Inner.TFrame")
+        section.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(section, text="Signal Isolation", style="SectionHeading.TLabel").pack(anchor="w", pady=(0, 4))
+        self.tree_isolation = self._make_kv_tree(section, height=8)
+        self.tree_isolation.pack(fill="x")
 
-        hyp = self._section(grid, 0, 1, "Hypotheses")
-        ttk.Button(hyp, text="Export CSV", style="Secondary.TButton",
-                   command=self.export_hypotheses_csv).pack(anchor="e", pady=(0, 4))
-        cols = ("score", "confidence", "evm", "cluster")
-        self.tree_hyp = ttk.Treeview(hyp, columns=cols, show="tree headings", height=6)
+        plot_frame = ttk.Frame(tab, style="Inner.TFrame")
+        plot_frame.grid(row=1, column=0, sticky="nsew")
+        self.plots_isolation = WaveformWaterfallPlots(plot_frame)
+
+    # Tab 2 -- Evidence Extraction: feature extraction + parameter
+    # estimation, plus the re-estimation search that refines them.
+    def _build_evidence_tab(self):
+        grid = self.tab_evidence
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_columnconfigure(1, weight=1)
+        grid.grid_rowconfigure(0, weight=1)
+        grid.grid_rowconfigure(1, weight=1)
+
+        params = ttk.Frame(grid, style="Inner.TFrame")
+        params.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        ttk.Label(params, text="Estimated Parameters", style="SectionHeading.TLabel").pack(anchor="w", pady=(0, 4))
+        self.tree_evidence = self._make_kv_tree(params, height=13)
+        self.tree_evidence.pack(fill="both", expand=True)
+
+        side = ttk.Frame(grid, style="Inner.TFrame")
+        side.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        ttk.Label(side, text="Spectral Peaks (Hz)", style="SectionHeading.TLabel").pack(anchor="w", pady=(0, 4))
+        self.text_peaks = self._bits_box(side, "", height=3)
+        ttk.Label(side, text="Re-estimation Search", style="SectionHeading.TLabel").pack(anchor="w", pady=(10, 4))
+        cols = ("profile", "rate", "offset", "lowpass", "score", "kept")
+        headings = {"profile": "Profile", "rate": "Rate (Hz)", "offset": "Offset (Hz)",
+                    "lowpass": "Low-pass", "score": "Score", "kept": "Kept?"}
+        self.tree_search = ttk.Treeview(side, columns=cols, show="headings", height=6)
+        for c in cols:
+            self.tree_search.heading(c, text=headings[c])
+            self.tree_search.column(c, width=70, anchor="center")
+        self.tree_search.pack(fill="both", expand=True)
+
+        spectrum = ttk.Frame(grid, style="Inner.TFrame")
+        spectrum.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(10, 0))
+        self.plot_spectrum = SpectrumPlot(spectrum)
+
+    # Tab 3 -- Candidate generation, evidence scoring, best-supported
+    # hypothesis selection, and (per candidate) demodulation.
+    def _build_hypothesis_tab(self):
+        tab = self.tab_hypothesis
+        best = self._section(tab, "Best-Supported Hypothesis", side="top", fill="x", expand=False, pady=(0, 10))
+        self.tree_best = self._make_kv_tree(best, height=7)
+        self.tree_best.pack(fill="x")
+
+        # Shrink "Best-Supported Hypothesis" above so this section -- and the
+        # constellation inside it -- gets most of the tab's vertical room:
+        # a full-width plot squeezed into a short leftover strip renders as a
+        # small square (equal-aspect data can't use width it has no height
+        # to match), which is the opposite of what a "make it bigger" ask
+        # wants. A side-by-side split lets both the table and the
+        # constellation claim the tab's full height, not just its width.
+        hyp = self._section(tab, "Candidate Hypotheses (demodulated + scored)")
+        hyp_body = ttk.Frame(hyp, style="Inner.TFrame")
+        hyp_body.pack(fill="both", expand=True)
+        hyp_body.grid_columnconfigure(0, weight=1)
+        hyp_body.grid_columnconfigure(1, weight=0)
+        hyp_body.grid_rowconfigure(1, weight=1)
+        ttk.Button(hyp_body, text="Export CSV", style="Secondary.TButton",
+                   command=self.export_hypotheses_csv).grid(row=0, column=0, sticky="e", pady=(0, 4))
+        cols = ("score", "confidence", "constellation", "order", "timing", "evm")
+        headings = {"score": "Score", "confidence": "Conf.", "constellation": "Constell.",
+                    "order": "Order", "timing": "Timing", "evm": "EVM"}
+        self.tree_hyp = ttk.Treeview(hyp_body, columns=cols, show="tree headings", height=5)
         self.tree_hyp.heading("#0", text="Modulation")
-        self.tree_hyp.heading("score", text="Score")
-        self.tree_hyp.heading("confidence", text="Confidence")
-        self.tree_hyp.heading("evm", text="EVM")
-        self.tree_hyp.heading("cluster", text="Cluster")
         self.tree_hyp.column("#0", width=90)
         for c in cols:
-            self.tree_hyp.column(c, width=70, anchor="center")
+            self.tree_hyp.heading(c, text=headings[c])
+            self.tree_hyp.column(c, width=65, anchor="center")
         self.tree_hyp.tag_configure("best", foreground=GOOD)
-        self.tree_hyp.pack(fill="both", expand=True)
+        self.tree_hyp.grid(row=1, column=0, sticky="nsew", padx=(0, 8))
 
-        rec = self._section(grid, 1, 0, "Recovery")
-        self.tree_recovery = self._make_kv_tree(rec, height=4)
+        const_frame = ttk.Frame(hyp_body, style="Inner.TFrame", width=560)
+        const_frame.grid(row=1, column=1, sticky="ns")
+        const_frame.grid_propagate(False)
+        self.plot_constellation = ConstellationPlot(const_frame)
+
+    # Tab 4 -- de-interleaving, FEC decoding, bit correlation and
+    # header/payload identification: the recovered information.
+    def _build_recovery_tab(self):
+        grid = self.tab_recovery
+        grid.grid_columnconfigure(0, weight=1)
+        grid.grid_columnconfigure(1, weight=1)
+        grid.grid_rowconfigure(0, weight=1)
+
+        rec = ttk.Frame(grid, style="Inner.TFrame")
+        rec.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        ttk.Label(rec, text="De-interleaving + FEC", style="SectionHeading.TLabel").pack(anchor="w", pady=(0, 4))
+        self.tree_recovery = self._make_kv_tree(rec, height=8)
         self.tree_recovery.pack(fill="x")
         self.text_recovered = self._bits_box(rec, "Recovered bitstream (first 512 bits)")
 
-        res = self._section(grid, 1, 1, "Results")
-        self.tree_results = self._make_kv_tree(res, height=3)
-        self.tree_results.pack(fill="x")
-        self.text_payload = self._bits_box(res, "Payload bits (first 512 bits)")
+        res = ttk.Frame(grid, style="Inner.TFrame")
+        res.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         ttk.Button(res, text="Export report (.json)", style="Secondary.TButton",
-                   command=self.export_report_json).pack(anchor="e", pady=(6, 0))
+                   command=self.export_report_json).pack(side="bottom", anchor="e", pady=(6, 0))
+        ttk.Label(res, text="Header / Payload", style="SectionHeading.TLabel").pack(anchor="w", pady=(0, 4))
+        self.tree_results = self._make_kv_tree(res, height=8)
+        self.tree_results.pack(fill="x")
+        self.text_payload = self._bits_box(res, "Payload (hex, then first 512 bits)")
 
-    def _bits_box(self, parent, label):
-        ttk.Label(parent, text=label, style="PanelMuted.TLabel").pack(anchor="w", pady=(8, 2))
-        box = scrolledtext.ScrolledText(parent, height=4, wrap="char", font=("Consolas", 9),
+    def _bits_box(self, parent, label, height=4):
+        if label:
+            ttk.Label(parent, text=label, style="PanelMuted.TLabel").pack(anchor="w", pady=(8, 2))
+        box = scrolledtext.ScrolledText(parent, height=height, wrap="char", font=("Consolas", 9),
                                          bg="#fafbfc", relief="solid", borderwidth=1)
         box.pack(fill="both", expand=True)
         box.configure(state="disabled")
         return box
 
     def _make_kv_tree(self, parent, height=6):
-        tree = ttk.Treeview(parent, columns=("value",), show="tree headings", height=height)
+        # minwidth guarantees the Field column can't be squeezed below a
+        # readable size by ttk's stretch-proportion layout in narrow
+        # (two-column) tabs; value/source are fixed so Field gets any
+        # leftover space.
+        tree = ttk.Treeview(parent, columns=("value", "source"), show="tree headings", height=height)
         tree.heading("#0", text="Field")
         tree.heading("value", text="Value")
-        tree.column("#0", width=170, anchor="w")
-        tree.column("value", width=150, anchor="w")
+        tree.heading("source", text="Source")
+        tree.column("#0", width=150, minwidth=150, anchor="w", stretch=True)
+        tree.column("value", width=120, minwidth=120, anchor="w", stretch=True)
+        tree.column("source", width=150, minwidth=150, anchor="w", stretch=True)
         return tree
 
     # ------------------------------------------------------------- actions
@@ -362,8 +463,6 @@ class SignalAnalysisApp(tk.Tk):
             fec_enabled = len(fec_types) > 0
 
         return PipelineConfig.from_dict({
-            "input": {"format": raw.source_format, "sample_rate": raw.sample_rate,
-                      "center_frequency": raw.center_frequency},
             "analysis": {"mode": mode},
             "modulations": modulations or ["BPSK", "QPSK", "16-QAM", "2-FSK", "4-FSK"],
             "deinterleaving": {"enabled": deint_enabled,
@@ -408,7 +507,7 @@ class SignalAnalysisApp(tk.Tk):
         self.run_button.configure(state="disabled")
         self.progress_var.set(0)
         self.status_label.configure(text="Starting...")
-        self.output_subtitle.configure(text="Running...")
+        self.output_subtitle.configure(text="Running...", foreground=MUTED)
 
         thread = threading.Thread(target=self._worker, args=(raw, config), daemon=True)
         thread.start()
@@ -446,52 +545,140 @@ class SignalAnalysisApp(tk.Tk):
         self.result = result
         self.run_button.configure(state="normal")
         self.status_label.configure(text="Complete")
-        self.output_subtitle.configure(text=f"Analysis complete — best hypothesis: "
-                                             f"{result.best_hypothesis.modulation if result.best_hypothesis else 'none'}")
+        self._clear_results()
 
-        self.plots.update(result.visualizations)
+        verdict = result.verdict
+        self.output_subtitle.configure(
+            text=f"{VERDICT_TITLES.get(verdict, verdict)} - {result.verdict_reason}",
+            foreground=VERDICT_COLORS.get(verdict, TEXT))
 
-        self._fill_kv(self.tree_params, {
-            "Sample rate (Hz)": fmt_num(result.estimate.sample_rate),
-            "Symbol rate (Hz)": fmt_num(result.estimate.symbol_rate),
-            "Carrier frequency (Hz)": fmt_num(result.estimate.carrier_frequency),
-            "Bandwidth (Hz)": fmt_num(result.estimate.bandwidth),
-            "SNR (dB)": fmt_num(result.estimate.snr_db),
-            "PAPR (dB)": fmt_num(result.features.papr_db),
-            "Spectral flatness": fmt_num(result.features.spectral_flatness),
-            "Kurtosis": fmt_num(result.features.kurtosis),
-            "Skewness": fmt_num(result.features.skewness),
+        self.plots_isolation.update(result.visualizations)
+        self.plot_spectrum.update(result.visualizations)
+        self.plot_constellation.update(result.visualizations)
+        prov = result.provenance
+        est, feat, iso = result.estimate, result.features, result.isolation
+
+        # ---- Tab 1: Signal Isolation ----
+        duration = (iso.segment_end - iso.segment_start) / iso.sample_rate if iso.sample_rate else 0.0
+        isolated_pct = (100.0 * (iso.segment_end - iso.segment_start) / iso.total_samples
+                        if iso.total_samples else 0.0)
+        profiles_tried = {t["profile"] for t in result.reestimation}
+        profile_source = "re-estimation search" if len(profiles_tried) > 1 else "default"
+        self._fill_kv(self.tree_isolation, {
+            "Active segment (samples)": (f"{iso.segment_start}:{iso.segment_end}", "isolation (energy segmentation)"),
+            "Segment duration (s)": (fmt_num(duration), "isolation"),
+            "Total samples": (iso.total_samples, "loaded"),
+            "Isolated fraction": (f"{isolated_pct:.1f}%", "isolation"),
+            "Active channel offset (Hz)": (fmt_num(iso.channel_offset_hz), "isolation (band detection)"),
+            "Active channel bandwidth (Hz)": (fmt_num(iso.channel_bandwidth_hz), "isolation (band detection)"),
+            "Preprocessing profile used": (iso.preprocessing_profile, profile_source),
         })
 
-        self.tree_hyp.delete(*self.tree_hyp.get_children())
+        # ---- Tab 2: Evidence Extraction ----
+        self._fill_kv(self.tree_evidence, {
+            "Sample rate (Hz)": (fmt_num(est.sample_rate), prov.get("sample_rate")),
+            "Center freq (Hz)": (fmt_num(est.carrier_frequency - est.carrier_offset), prov.get("center_frequency")),
+            "Carrier offset (Hz)": (fmt_num(est.carrier_offset), prov.get("carrier_offset")),
+            "Symbol rate (Hz)": (fmt_num(est.symbol_rate), prov.get("symbol_rate")),
+            "Timing fit": (fmt_num(est.timing_fit), "estimated"),
+            "Bandwidth (Hz)": (fmt_num(est.bandwidth), prov.get("bandwidth")),
+            "Samples per symbol": (est.samples_per_symbol or "-", "sample rate / symbol rate"),
+            "SNR (dB)": (fmt_num(est.snr_db), "estimated (M2M4)"),
+            "PAPR (dB)": (fmt_num(feat.papr_db), "measured"),
+            "Spectral flatness": (fmt_num(feat.spectral_flatness), "measured"),
+            "Kurtosis": (fmt_num(feat.kurtosis), "measured"),
+            "Skewness": (fmt_num(feat.skewness), "measured"),
+        })
+        self._set_text(self.text_peaks, ", ".join(fmt_num(p) for p in feat.spectral_peaks) or "(none)")
+        for t in result.reestimation:
+            tags = ("best",) if t["accepted"] and t is result.reestimation[-1] else ()
+            self.tree_search.insert("", "end", tags=tags, values=(
+                t["profile"], fmt_num(t["symbol_rate"]), fmt_num(t["carrier_offset_hz"]),
+                fmt_num(t["lowpass_hz"]) if t["lowpass_hz"] else "-", fmt_num(t["score"]),
+                "yes" if t["accepted"] else "no",
+            ))
+        self.tree_search.tag_configure("best", foreground=GOOD)
+
+        # ---- Tab 3: Hypothesis selection + demodulation ----
+        best = result.best_hypothesis
+        order = best.evidence.get("expected_order") if best else None
+        data_rate = est.symbol_rate * np.log2(order) if order and order > 1 else None
+        self._fill_kv(self.tree_best, {
+            "Modulation": (best.modulation if best else "-", prov.get("modulation")),
+            "Score": (fmt_num(best.score) if best else "-", "evidence scoring"),
+            "Confidence": (f"{best.confidence}%" if best else "-", "relative to runner-up"),
+            "Verdict": (VERDICT_TITLES.get(result.verdict, result.verdict), "verdict rule"),
+            "Demodulated bits": (len(best.demodulation_result) if best and best.demodulation_result is not None
+                                  else "-", "demodulation"),
+            "EVM": (fmt_num(best.evidence.get("evm")) if best else "-", "demodulation"),
+            "Data rate (bps)": (fmt_num(data_rate) if data_rate else "-", "symbol rate x bits/symbol"),
+        })
         for i, h in enumerate(result.hypotheses):
             tags = ("best",) if i == 0 else ()
+            m = h.metrics
             self.tree_hyp.insert("", "end", text=h.modulation, tags=tags, values=(
-                fmt_num(h.score), f"{h.confidence}%", fmt_num(h.evidence.get("evm")),
-                h.evidence.get("matched_cluster_order"),
+                fmt_num(h.score), f"{h.confidence}%", fmt_num(m.get("constellation_fit")),
+                fmt_num(m.get("order_consistency")), fmt_num(m.get("timing_fit")), fmt_num(h.evidence.get("evm")),
             ))
 
-        if result.recovered:
+        # ---- Tab 4: Recovery Information ----
+        rec = result.recovered
+        if rec:
+            deint_params = rec.diagnostics.get("deinterleave_params") or {}
+            params_str = ", ".join(f"{k}={v}" for k, v in deint_params.items()) or "-"
             self._fill_kv(self.tree_recovery, {
-                "Modulation": result.recovered.modulation,
-                "De-interleave method": result.recovered.deinterleave_method,
-                "FEC method": result.recovered.fec_method,
-                "FEC success": str(result.recovered.fec_success),
+                "De-interleaving": (rec.deinterleave_method, prov.get("de-interleaving")),
+                "De-interleave params": (params_str, "used during recovery search"),
+                "FEC": (rec.fec_method, prov.get("fec")),
+                "FEC verified": ("-" if rec.fec_success is None else str(rec.fec_success), "decoded"),
+                "FEC quality": (rec.diagnostics.get("fec_quality") or "-", "decoder diagnostics"),
+                "FEC input": ("soft (per-bit LLR)" if rec.llr_used else "hard bits",
+                              "demodulation" if rec.llr_used else "no soft info for this method"),
+                "Evidence": ("supported" if rec.confirmed else "none", "correlation / FEC"),
+                "Recovered bit count": (len(rec.bits), "de-interleaving + FEC output"),
             })
-            self._set_text(self.text_recovered, self._bits_preview(result.recovered.bits))
+            self._set_text(self.text_recovered, self._bits_preview(rec.bits))
+        else:
+            self._fill_kv(self.tree_recovery, {"Recovery": ("not run", "insufficient evidence for a modulation")})
+            self._set_text(self.text_recovered, "(recovery not run: insufficient evidence for a modulation)")
 
-        if result.bitstream:
+        bs = result.bitstream
+        if bs:
+            region = "-" if bs.payload_start is None else f"{bs.payload_start}..{bs.payload_end}"
+            payload_len = len(bs.payload_bits) if bs.payload_bits is not None else 0
             self._fill_kv(self.tree_results, {
-                "Header pattern": result.bitstream.header_pattern or "not found",
-                "Header offset (bits)": result.bitstream.header_offset,
-                "Correlation peak": fmt_num(result.bitstream.correlation_peak),
+                "Header pattern": (bs.header_pattern or "not found", prov.get("header")),
+                "Header offset (bits)": (bs.header_offset if bs.header_offset is not None else "-", "correlation"),
+                "Pattern length": (bs.pattern_length or "-", "correlation"),
+                "Polarity": (bs.polarity if bs.header_pattern else "-", "correlation"),
+                "Similarity": (fmt_num(bs.hamming_similarity) if bs.header_pattern else "-", "1 - d_H/N"),
+                "False-alarm p": (f"{bs.false_alarm_probability:.2g}", "binomial null"),
+                "Payload region": (region, "after header"),
+                "Payload length": (f"{payload_len} bits ({payload_len // 8} bytes)" if payload_len else "-",
+                                    "after header"),
             })
-            self._set_text(self.text_payload, self._bits_preview(result.bitstream.payload_bits))
+            payload = bs.payload_bits
+            if payload is not None and len(payload):
+                self._set_text(self.text_payload,
+                               "HEX  " + bits_to_hex(payload) + "\n\nBIN  " + self._bits_preview(payload))
+            else:
+                self._set_text(self.text_payload, "(no header found, so no payload region identified)")
+        else:
+            self._fill_kv(self.tree_results, {})
+            self._set_text(self.text_payload, "")
+
+    def _clear_results(self):
+        for tree in (self.tree_isolation, self.tree_evidence, self.tree_search, self.tree_best,
+                     self.tree_hyp, self.tree_recovery, self.tree_results):
+            tree.delete(*tree.get_children())
+        self._set_text(self.text_peaks, "")
+        self._set_text(self.text_recovered, "")
+        self._set_text(self.text_payload, "")
 
     def _fill_kv(self, tree, data: dict):
         tree.delete(*tree.get_children())
-        for k, v in data.items():
-            tree.insert("", "end", text=k, values=(v,))
+        for k, (value, source) in data.items():
+            tree.insert("", "end", text=k, values=(value, source or ""))
 
     def _set_text(self, widget, text):
         widget.configure(state="normal")
@@ -514,10 +701,12 @@ class SignalAnalysisApp(tk.Tk):
             return
         with open(path, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Modulation", "Score", "Confidence", "EVM", "Cluster order"])
+            writer.writerow(["Modulation", "Score", "Confidence", "Constellation fit", "Order consistency",
+                             "Timing fit", "EVM"])
             for h in self.result.hypotheses:
-                writer.writerow([h.modulation, h.score, h.confidence, h.evidence.get("evm"),
-                                  h.evidence.get("matched_cluster_order")])
+                writer.writerow([h.modulation, h.score, h.confidence, h.metrics.get("constellation_fit"),
+                                 h.metrics.get("order_consistency"), h.metrics.get("timing_fit"),
+                                 h.evidence.get("evm")])
         messagebox.showinfo("Exported", f"Saved to {path}")
 
     def export_report_json(self):

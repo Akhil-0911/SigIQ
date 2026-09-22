@@ -3,23 +3,27 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PipelineConfig:
-    format: str = "iq"                 # "iq" | "wav"
-    sample_rate: float = 0.0           # required for iq, overrides header for wav if set
-    center_frequency: float = 0.0
-    iq_dtype: str = "float32"
-
     mode: str = "automatic"            # "automatic" | "manual"
-    estimate_sample_rate: bool = True
-    detect_modulation: bool = True
-    detect_fec: bool = True
-    detect_interleaving: bool = True
 
-    # re-estimation feedback loop: if the best hypothesis scores below
-    # re_estimate_score_threshold, redo preprocessing/isolation with a
-    # different profile and re-score, up to re_estimate_max_attempts times.
+    # re-estimation: if the best score is below re_estimate_score_threshold (or
+    # the top two candidates are within ambiguity_margin), search
+    # (symbol rate, carrier offset, low-pass cutoff) for a better score. The
+    # search stops when an iteration improves the score by less than
+    # re_estimate_tolerance or after re_estimate_max_iterations; if the
+    # result is still weak the next preprocessing profile is tried, up to
+    # re_estimate_max_attempts profiles in total.
     re_estimate_enabled: bool = True
     re_estimate_max_attempts: int = 3
+    re_estimate_max_iterations: int = 3
+    re_estimate_tolerance: float = 0.005
     re_estimate_score_threshold: float = 0.6
+    re_estimate_timing_threshold: float = 0.3   # min timing_fit before the symbol rate is trusted
+
+    # honest-outcome limits (see core/scoring/verdict.py)
+    insufficient_evidence_score: float = 0.3
+    min_timing_fit: float = 0.5   # below this no symbol clock is considered found (automatic rate only)
+    min_symbols: int = 100        # a symbol rate giving fewer symbols than this is not evaluated
+    ambiguity_margin: float = 0.05
 
     modulations: list = field(default_factory=lambda: ["BPSK", "QPSK", "16-QAM", "2-FSK", "4-FSK"])
     deinterleaving_enabled: bool = True
@@ -27,7 +31,7 @@ class PipelineConfig:
     fec_enabled: bool = True
     fec_types: list = field(default_factory=lambda: ["convolutional_viterbi", "reed_solomon", "concatenated", "ldpc"])
 
-    # manual overrides (used when mode == "manual")
+    # manual overrides (used when mode == "manual"); None means "not specified"
     manual_modulation: str = None
     manual_symbol_rate: float = None
     manual_deinterleave: str = None
@@ -36,29 +40,28 @@ class PipelineConfig:
 
     @classmethod
     def from_dict(cls, d: dict) -> "PipelineConfig":
-        inp = d.get("input", {})
         analysis = d.get("analysis", {})
         deint = d.get("deinterleaving", {})
         fec = d.get("fec", {})
         manual = d.get("manual", {})
+        defaults = cls()
         return cls(
-            format=inp.get("format", "iq"),
-            sample_rate=inp.get("sample_rate", 0.0),
-            center_frequency=inp.get("center_frequency", 0.0),
-            iq_dtype=inp.get("iq_dtype", "float32"),
             mode=analysis.get("mode", "automatic"),
-            estimate_sample_rate=analysis.get("estimate_sample_rate", True),
-            detect_modulation=analysis.get("detect_modulation", True),
-            detect_fec=analysis.get("detect_fec", True),
-            detect_interleaving=analysis.get("detect_interleaving", True),
-            re_estimate_enabled=analysis.get("re_estimate_enabled", True),
-            re_estimate_max_attempts=analysis.get("re_estimate_max_attempts", 3),
-            re_estimate_score_threshold=analysis.get("re_estimate_score_threshold", 0.6),
-            modulations=d.get("modulations", ["BPSK", "QPSK", "16-QAM", "2-FSK", "4-FSK"]),
+            re_estimate_enabled=analysis.get("re_estimate_enabled", defaults.re_estimate_enabled),
+            re_estimate_max_attempts=analysis.get("re_estimate_max_attempts", defaults.re_estimate_max_attempts),
+            re_estimate_max_iterations=analysis.get("re_estimate_max_iterations", defaults.re_estimate_max_iterations),
+            re_estimate_tolerance=analysis.get("re_estimate_tolerance", defaults.re_estimate_tolerance),
+            re_estimate_score_threshold=analysis.get("re_estimate_score_threshold", defaults.re_estimate_score_threshold),
+            re_estimate_timing_threshold=analysis.get("re_estimate_timing_threshold", defaults.re_estimate_timing_threshold),
+            insufficient_evidence_score=analysis.get("insufficient_evidence_score", defaults.insufficient_evidence_score),
+            ambiguity_margin=analysis.get("ambiguity_margin", defaults.ambiguity_margin),
+            min_timing_fit=analysis.get("min_timing_fit", defaults.min_timing_fit),
+            min_symbols=analysis.get("min_symbols", defaults.min_symbols),
+            modulations=d.get("modulations", defaults.modulations),
             deinterleaving_enabled=deint.get("enabled", True),
-            deinterleaving_types=deint.get("types", ["block", "convolutional", "diagonal", "pseudo_random"]),
+            deinterleaving_types=deint.get("types", defaults.deinterleaving_types),
             fec_enabled=fec.get("enabled", True),
-            fec_types=fec.get("types", ["convolutional_viterbi", "reed_solomon", "concatenated", "ldpc"]),
+            fec_types=fec.get("types", defaults.fec_types),
             manual_modulation=manual.get("modulation"),
             manual_symbol_rate=manual.get("symbol_rate"),
             manual_deinterleave=manual.get("deinterleave"),

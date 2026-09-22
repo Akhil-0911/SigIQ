@@ -16,9 +16,12 @@ def make_signal(modulation, n_symbols=1000, sps=8, sample_rate=48000.0, snr_db=2
         bits = rng.integers(0, 2, n_symbols)
         symbols = 2 * bits - 1
     elif modulation == "QPSK":
+        # Gray-coded like the PSK demodulator: bits (g1, g0) sit at angle index i
+        # where g = i ^ (i >> 1), i.e. index order 00, 01, 11, 10
+        gray_to_index = {0: 0, 1: 1, 3: 2, 2: 3}
         pairs = rng.integers(0, 4, n_symbols)
         bits = np.array([[(p >> 1) & 1, p & 1] for p in pairs]).flatten()
-        symbols = np.exp(1j * (2 * np.pi * pairs / 4 + np.pi / 4))
+        symbols = np.exp(1j * (2 * np.pi * np.array([gray_to_index[p] for p in pairs]) / 4 + np.pi / 4))
     elif modulation == "16-QAM":
         levels = rng.integers(0, 16, n_symbols)
         bits = np.array([[(l >> i) & 1 for i in range(3, -1, -1)] for l in levels]).flatten()
@@ -74,7 +77,6 @@ def run_case(modulation, snr_db, seed=0):
     raw = RawSignal(samples=samples, sample_rate=sample_rate, source_format="iq",
                      center_frequency=0.0, filename=f"{modulation}_{snr_db}dB.iq")
     config = PipelineConfig.from_dict({
-        "input": {"format": "iq", "sample_rate": sample_rate},
         "analysis": {"mode": "automatic", "re_estimate_enabled": True},
         "modulations": ["BPSK", "QPSK", "16-QAM", "2-FSK", "4-FSK"],
         "deinterleaving": {"enabled": False},

@@ -1,5 +1,6 @@
-"""Embedded matplotlib plots for the Visualization tab: waveform, spectrum,
-waterfall and constellation, styled to match the app's light theme."""
+"""Embedded matplotlib plots for the pipeline-stage tabs: waveform + waterfall
+(Signal Isolation), spectrum (Evidence Extraction), constellation (Hypothesis
+& Demodulation) -- styled to match the app's light theme."""
 import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -7,29 +8,16 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from gui.style import PANEL, BORDER, ACCENT, MUTED, TEXT
 
 
-class AnalysisPlots:
-    def __init__(self, parent):
-        self.fig = Figure(figsize=(5, 4), dpi=100, facecolor=PANEL)
-        gs = self.fig.add_gridspec(3, 2, height_ratios=[0.85, 0.85, 1.4], hspace=0.7, wspace=0.3,
-                                    left=0.07, right=0.98, top=0.96, bottom=0.07)
+class _PlotPanel:
+    """Common Figure/canvas setup and the high-DPI resize fix, shared by
+    every per-tab plot widget below."""
 
-        self.ax_waveform = self.fig.add_subplot(gs[0, :])
-        self.ax_spectrum = self.fig.add_subplot(gs[1, :])
-        self.ax_waterfall = self.fig.add_subplot(gs[2, 0])
-        self.ax_constellation = self.fig.add_subplot(gs[2, 1])
-
-        for ax in (self.ax_waveform, self.ax_spectrum, self.ax_waterfall, self.ax_constellation):
-            self._style_axes(ax)
-
-        self.ax_waveform.set_title("Waveform (magnitude)", fontsize=9, color=TEXT, loc="left")
-        self.ax_spectrum.set_title("Spectrum (PSD)", fontsize=9, color=TEXT, loc="left")
-        self.ax_waterfall.set_title("Waterfall", fontsize=9, color=TEXT, loc="left")
-        self.ax_constellation.set_title("Constellation", fontsize=9, color=TEXT, loc="left")
-
+    def __init__(self, parent, figsize):
+        self.fig = Figure(figsize=figsize, dpi=100, facecolor=PANEL)
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
         widget = self.canvas.get_tk_widget()
         widget.configure(bg=PANEL, highlightthickness=0)
-        widget.pack(fill="both", expand=True, padx=10, pady=10)
+        widget.pack(fill="both", expand=True)
 
         # matplotlib's Tk backend rescales the figure DPI (device pixel ratio)
         # only after the window is mapped, without re-fitting the figure to
@@ -39,7 +27,6 @@ class AnalysisPlots:
         # widget using whatever DPI is current.
         widget.bind("<Configure>", lambda e: self._fit(e.width, e.height), add="+")
         widget.bind("<Map>", lambda e: self._fit(widget.winfo_width(), widget.winfo_height()), add="+")
-        self.canvas.draw()
 
     def _fit(self, width_px, height_px):
         if width_px < 20 or height_px < 20:
@@ -55,11 +42,27 @@ class AnalysisPlots:
         ax.tick_params(colors=MUTED, labelsize=7)
         ax.grid(True, color=BORDER, linewidth=0.5, alpha=0.6)
 
+
+class WaveformWaterfallPlots(_PlotPanel):
+    """Signal Isolation tab: time-domain envelope and time/frequency view of
+    the isolated segment -- how the analyst can see what was isolated."""
+
+    def __init__(self, parent):
+        super().__init__(parent, figsize=(5, 4))
+        gs = self.fig.add_gridspec(2, 1, height_ratios=[1, 1.3], hspace=0.55,
+                                    left=0.09, right=0.98, top=0.93, bottom=0.1)
+        self.ax_waveform = self.fig.add_subplot(gs[0])
+        self.ax_waterfall = self.fig.add_subplot(gs[1])
+        for ax in (self.ax_waveform, self.ax_waterfall):
+            self._style_axes(ax)
+        self.ax_waveform.set_title("Waveform (magnitude)", fontsize=9, color=TEXT, loc="left")
+        self.ax_waterfall.set_title("Waterfall", fontsize=9, color=TEXT, loc="left")
+        self.canvas.draw()
+
     def clear(self):
-        for ax in (self.ax_waveform, self.ax_spectrum, self.ax_waterfall, self.ax_constellation):
+        for ax in (self.ax_waveform, self.ax_waterfall):
             ax.cla()
             self._style_axes(ax)
-        self.canvas.draw_idle()
 
     def update(self, viz: dict):
         self.clear()
@@ -69,14 +72,6 @@ class AnalysisPlots:
             mag = [np.hypot(p[0], p[1]) for p in waveform]
             self.ax_waveform.plot(mag, color=ACCENT, linewidth=0.8)
         self.ax_waveform.set_title("Waveform (magnitude)", fontsize=9, color=TEXT, loc="left")
-
-        freqs = viz.get("spectrum_freqs") or []
-        psd_db = viz.get("spectrum_db") or []
-        if freqs and psd_db:
-            self.ax_spectrum.plot(freqs, psd_db, color="#5b8cff", linewidth=0.9)
-            self.ax_spectrum.set_xlabel("Hz", fontsize=7, color=MUTED)
-            self.ax_spectrum.set_ylabel("dB", fontsize=7, color=MUTED)
-        self.ax_spectrum.set_title("Spectrum (PSD)", fontsize=9, color=TEXT, loc="left")
 
         wf_freqs = viz.get("waterfall_freqs") or []
         wf_times = viz.get("waterfall_times") or []
@@ -91,14 +86,68 @@ class AnalysisPlots:
             self.ax_waterfall.set_ylabel("Hz", fontsize=7, color=MUTED)
         self.ax_waterfall.set_title("Waterfall", fontsize=9, color=TEXT, loc="left")
 
+        self.canvas.draw_idle()
+
+
+class SpectrumPlot(_PlotPanel):
+    """Evidence Extraction tab: the PSD that spectral feature extraction and
+    parameter estimation (bandwidth, center frequency) are measured from."""
+
+    def __init__(self, parent):
+        super().__init__(parent, figsize=(5, 2.2))
+        self.ax = self.fig.add_subplot(111)
+        self.fig.subplots_adjust(left=0.09, right=0.98, top=0.85, bottom=0.22)
+        self._style_axes(self.ax)
+        self.ax.set_title("Spectrum (PSD)", fontsize=9, color=TEXT, loc="left")
+        self.canvas.draw()
+
+    def update(self, viz: dict):
+        self.ax.cla()
+        self._style_axes(self.ax)
+        freqs = viz.get("spectrum_freqs") or []
+        psd_db = viz.get("spectrum_db") or []
+        if freqs and psd_db:
+            self.ax.plot(freqs, psd_db, color="#5b8cff", linewidth=0.9)
+            self.ax.set_xlabel("Hz", fontsize=7, color=MUTED)
+            self.ax.set_ylabel("dB", fontsize=7, color=MUTED)
+        self.ax.set_title("Spectrum (PSD)", fontsize=9, color=TEXT, loc="left")
+        self.canvas.draw_idle()
+
+
+class ConstellationPlot(_PlotPanel):
+    """Hypothesis & Demodulation tab: the best-supported hypothesis's own
+    demodulated symbols."""
+
+    def __init__(self, parent):
+        super().__init__(parent, figsize=(4.4, 4.4))
+        self.ax = self.fig.add_subplot(111)
+        self.fig.subplots_adjust(left=0.14, right=0.97, top=0.93, bottom=0.09)
+        self._style_axes(self.ax)
+        self.ax.set_title("Constellation", fontsize=9, color=TEXT, loc="left")
+        self.canvas.draw()
+
+    def update(self, viz: dict):
+        self.ax.cla()
+        self._style_axes(self.ax)
         constellation = viz.get("constellation") or []
         if constellation:
             re = [p[0] for p in constellation]
             im = [p[1] for p in constellation]
-            self.ax_constellation.scatter(re, im, s=6, color=ACCENT, alpha=0.7)
-            self.ax_constellation.axhline(0, color=BORDER, linewidth=0.6)
-            self.ax_constellation.axvline(0, color=BORDER, linewidth=0.6)
-            self.ax_constellation.set_aspect("equal", adjustable="box")
-        self.ax_constellation.set_title("Constellation", fontsize=9, color=TEXT, loc="left")
-
+            # Small, low-alpha markers so overlapping symbols build up a
+            # visible density gradient (cluster shape/spread) instead of
+            # rendering as one flat, solid-colored blob.
+            self.ax.scatter(re, im, s=4, color=ACCENT, alpha=0.35, linewidths=0)
+            self.ax.axhline(0, color=BORDER, linewidth=0.6)
+            self.ax.axvline(0, color=BORDER, linewidth=0.6)
+            # Zoom to the actual symbol spread (plus a margin) instead of a
+            # fixed range, so a tight cluster (e.g. high-SNR BPSK sitting near
+            # +-1 with almost no spread) fills the plot instead of looking
+            # like a speck inside empty space. Symmetric limits on both axes
+            # before locking the aspect keep it equal without matplotlib
+            # having to shrink the plot's box to force a 1:1 ratio.
+            half_span = max(max(abs(min(re)), abs(max(re)), abs(min(im)), abs(max(im))), 1e-3) * 1.2
+            self.ax.set_xlim(-half_span, half_span)
+            self.ax.set_ylim(-half_span, half_span)
+            self.ax.set_aspect("equal", adjustable="box")
+        self.ax.set_title("Constellation", fontsize=9, color=TEXT, loc="left")
         self.canvas.draw_idle()

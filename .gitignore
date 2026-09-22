@@ -4,3 +4,9 @@ __pycache__/
 venv/
 .vscode/
 .DS_Store
+
+# large external validation datasets -- not part of the codebase, dropped in
+# for one-off testing (see CLAUDE.md); too large to version
+/RML2016.10a.tar.bz2
+/Raw_IQ_Dataset.zip
+/test_signals.zip
