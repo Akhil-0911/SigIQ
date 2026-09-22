@@ -100,21 +100,20 @@ result. It performs no DSP itself.
 Implemented in `core/pipeline/analyzer.py`.
 
 ```mermaid
-flowchart LR
-    L[Input Loader] --> P[Preprocessing]
-    P --> I[Isolation]
-    I --> F[Feature Extraction]
-    F --> E[Parameter Estimation]
-    E --> G[Candidate Generation]
-    G --> S[Evidence Scoring]
-    S --> W{Weak or ambiguous?}
-    W -- yes --> R[Re-estimation search]
-    R --> S
-    W -- no --> V[Best hypothesis + verdict]
-    V --> D[De-interleave x FEC]
-    D --> H[Sync-word matching]
-    H --> PL[Header / payload]
-    PL --> RI[Recovered information]
+flowchart TD
+    subgraph Row1[" "]
+        direction LR
+        L[Input Loader] --> P[Preprocessing] --> I[Isolation] --> F[Feature Extraction]
+        F --> E[Parameter Estimation] --> G[Candidate Generation] --> S[Evidence Scoring]
+        S --> W{Weak or ambiguous?}
+        W -- yes --> R[Re-estimation search] --> S
+    end
+    subgraph Row2[" "]
+        direction LR
+        V[Best hypothesis + verdict] --> D[De-interleave x FEC]
+        D --> H[Sync-word matching] --> PL[Header / payload] --> RI[Recovered information]
+    end
+    W -- no --> V
 ```
 
 Each box above is one stage; the exact detail behind it:
