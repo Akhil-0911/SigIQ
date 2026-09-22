@@ -347,7 +347,7 @@ Documented, not hidden.
 | Area | Limitation |
 |---|---|
 | Classification | 16-QAM at very low SNR is misclassified as QPSK. 2-FSK whose tone spacing equals the symbol rate is spectrally hard to separate from BPSK. |
-| FSK detection | Low modulation-index FSK (tone spacing a small fraction of the symbol rate) is not detected at all, confirmed against real captures. The PSD is a single unimodal lobe with no resolvable per-tone humps, and the instantaneous-frequency samples show only shallow, noise-comparable bimodality. No threshold-based fix was found that did not also false-positive on PSK/QAM (see `CLAUDE.md` for the two approaches tried and rejected). |
+| FSK detection | Low modulation-index FSK (tone spacing a small fraction of the symbol rate) is not detected at all, confirmed against real captures. The PSD is a single unimodal lobe with no resolvable per-tone humps, and the instantaneous-frequency samples show only shallow, noise-comparable bimodality. No threshold-based fix was found that did not also false-positive on PSK/QAM. |
 | SNR estimation | The M2M4 estimator saturates near the +40 dB clamp for true SNR above roughly 20 to 25 dB, a finite-sample instability in the 4th-moment estimate at high SNR. The qualitative read ("very clean") stays right; the exact dB figure above ~20 dB should not be trusted. |
 | Symbol-rate estimation | Can still lock onto an exact 2x harmonic for unshaped (rectangular-pulse) PSK/QAM during a second preprocessing-profile retry, even with the tie-break margin in place, because sampling at an exact multiple of an unshaped signal's true rate just repeats each real symbol. EVM cannot tell that apart from the true rate. |
 | LDPC | Supports exactly one code, the IEEE 802.11n n=648 rate-3/4 code, with min-sum decoding (soft LLR when available, hard-bit fallback otherwise). Other LDPC codes are reported as not decodable. |
@@ -378,9 +378,8 @@ core/            signal-processing engine
 gui/             Tkinter desktop UI (app.py, plots.py, style.py); launched by main.py
 tests/           smoke, behaviour, LDPC and accuracy tests
 samples/         small synthetic .iq / .wav files for trying the app
-docs/            implementation specification (the design contract) + screenshots
+docs/            screenshots used in this README
 main.py          entry point (launches the GUI)
-CLAUDE.md        working notes: rules, status, known dead ends
 environment.yml  conda environment (Python 3.10, Tk 8.6, pinned packages)
 requirements.txt the same pinned packages for pip
 ```
