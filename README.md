@@ -100,16 +100,16 @@ result. It performs no DSP itself.
 Implemented in `core/pipeline/analyzer.py`.
 
 ```mermaid
-flowchart TD
-    subgraph Row1[" "]
-        direction LR
+flowchart LR
+    subgraph Part1[" "]
+        direction TB
         L[Input Loader] --> P[Preprocessing] --> I[Isolation] --> F[Feature Extraction]
         F --> E[Parameter Estimation] --> G[Candidate Generation] --> S[Evidence Scoring]
         S --> W{Weak or ambiguous?}
         W -- yes --> R[Re-estimation search] --> S
     end
-    subgraph Row2[" "]
-        direction LR
+    subgraph Part2[" "]
+        direction TB
         V[Best hypothesis + verdict] --> D[De-interleave x FEC]
         D --> H[Sync-word matching] --> PL[Header / payload] --> RI[Recovered information]
     end
