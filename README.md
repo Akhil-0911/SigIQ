@@ -99,21 +99,22 @@ result. It performs no DSP itself.
 
 Implemented in `core/pipeline/analyzer.py`.
 
+Part 1: loading through the re-estimation loop.
+
 ```mermaid
-flowchart TD
-    subgraph Group1[" "]
-        direction LR
-        L[Input Loader] --> P[Preprocessing] --> I[Isolation] --> F[Feature Extraction]
-        F --> E[Parameter Estimation] --> G[Candidate Generation] --> S[Evidence Scoring]
-        S --> W{Weak or ambiguous?}
-        W -- yes --> R[Re-estimation search] --> S
-    end
-    subgraph Group2[" "]
-        direction LR
-        V[Best hypothesis + verdict] --> D[De-interleave x FEC]
-        D --> H[Sync-word matching] --> PL[Header / payload] --> RI[Recovered information]
-    end
-    W -- no --> V
+flowchart LR
+    L[Input Loader] --> P[Preprocessing] --> I[Isolation] --> F[Feature Extraction]
+    F --> E[Parameter Estimation] --> G[Candidate Generation] --> S[Evidence Scoring]
+    S --> W{Weak or ambiguous?}
+    W -- yes --> R[Re-estimation search] --> S
+```
+
+Part 2: once the verdict is no longer weak or ambiguous.
+
+```mermaid
+flowchart LR
+    V[Best hypothesis + verdict] --> D[De-interleave x FEC]
+    D --> H[Sync-word matching] --> PL[Header / payload] --> RI[Recovered information]
 ```
 
 Each box above is one stage; the exact detail behind it:
