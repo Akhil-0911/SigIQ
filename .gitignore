@@ -10,6 +10,7 @@ venv/
 /RML2016.10a.tar.bz2
 /Raw_IQ_Dataset.zip
 /test_signals.zip
+/SigIQ_README.pdf
 
 # working notes, the internal design contract, and other local-only docs --
 # kept on disk, not published
