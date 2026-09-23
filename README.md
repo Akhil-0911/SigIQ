@@ -80,11 +80,13 @@ SigIQ follows a strict **two-layer, one-direction** architecture. The DSP engine
 exists.
 
 ```mermaid
-flowchart LR
-    A["gui/app.py<br/>File input + configuration"] --> B["run_pipeline()<br/>background thread"]
-    B --> C["core/<br/>DSP engine, no UI imports"]
-    C --> D["AnalysisResult<br/>parameters, hypotheses,<br/>recovery, provenance"]
-    D --> E["gui/ result tabs + plots<br/>render only"]
+flowchart TD
+    GUI["<b>gui/</b>  (Tkinter UI)<br/><br/>File input + config (app.py)<br/>Result tabs (app.py)<br/>Plots (plots.py)"]
+    CORE["<b>core/</b>  (DSP engine, no UI imports)<br/><br/>io/ · preprocessing/ · isolation/ · feature_extraction/<br/>estimation/ · hypotheses/ · scoring/ · demodulation/<br/>deinterleaving/ · fec/ · correlation/ · pipeline/"]
+    RESULT["<b>AnalysisResult</b><br/><br/>parameters · hypotheses · recovery · provenance · viz"]
+
+    GUI -->|"calls run_pipeline()<br/>in a background thread"| CORE
+    CORE -->|returns| RESULT
 ```
 
 `core/`'s twelve packages (`io/`, `preprocessing/`, `isolation/`, `feature_extraction/`, `estimation/`,
