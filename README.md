@@ -16,7 +16,7 @@
 <br/>
 
 **Feed it a raw `.iq` or `.wav` recording. It tells you the modulation, the real transmission
-parameters, and — if the bits decode — the recovered payload. Every number is computed live,
+parameters, and, if the bits decode, the recovered payload. Every number is computed live,
 labelled by where it came from, and it says "I don't know" when the evidence doesn't support an answer.**
 
 <br/>
@@ -31,7 +31,7 @@ labelled by where it came from, and it says "I don't know" when the evidence doe
 
 ## 🧠 Overview
 
-A radio transmission is just a stream of bits encoded onto a wave — but unlike a `.jpg` or `.mp3`,
+A radio transmission is just a stream of bits encoded onto a wave, but unlike a `.jpg` or `.mp3`,
 there's no universal file format for it. The sender and receiver privately agree in advance on how
 fast bits are sent, how 0s and 1s are represented as changes in the wave, whether extra data is mixed
 in to survive noise, and whether a fixed pattern marks where the real content starts. Knowing that
@@ -39,7 +39,7 @@ agreement is normally a precondition for reading the signal at all.
 
 SigIQ works the other way around: given only a raw recording, with none of that context, it tests the
 reasonable possibilities for each of those unknowns and reports which combination the data actually
-supports — plus the recovered bits, if enough of the signal survived. (A loose analogy: transcribing
+supports, plus the recovered bits, if enough of the signal survived. (A loose analogy: transcribing
 a recording of speech in an unidentified language, rather than being told in advance which language
 it is.)
 
@@ -48,9 +48,9 @@ Given a raw `.iq` (headerless interleaved I/Q binary) or `.wav` recording, SigIQ
 | Question | How it is answered |
 |---|---|
 | **What modulation is being used?** | Demodulates against every candidate (BPSK, QPSK, 16-QAM, 2-FSK, 4-FSK) and scores which one the data actually supports best. |
-| **What are the real transmission parameters?** | Sample rate, symbol rate, carrier offset, bandwidth, and SNR — each labelled as *user-provided*, *read from a file header*, *estimated*, or *inferred from the winning candidate*. |
+| **What are the real transmission parameters?** | Sample rate, symbol rate, carrier offset, bandwidth, and SNR, each labelled as *user-provided*, *read from a file header*, *estimated*, or *inferred from the winning candidate*. |
 | **Are the bits interleaved and/or FEC-coded?** | A joint search over de-interleaving (block, convolutional, diagonal, pseudo-random) and FEC (Viterbi, Reed-Solomon, concatenated, LDPC), kept only if a header match or a verifying decoder supports it. |
-| **Is there a recognizable header/payload?** | Correlation against known sync words (CCSDS ASM, HDLC flag, Barker-11), backed by a statistical false-alarm test — not a similarity guess. |
+| **Is there a recognizable header/payload?** | Correlation against known sync words (CCSDS ASM, HDLC flag, Barker-11), backed by a statistical false-alarm test, not a similarity guess. |
 
 > If the evidence is weak, or the signal is ambiguous between two hypotheses, SigIQ says so
 > (`ambiguous` or `insufficient_evidence`) instead of forcing a confident-looking wrong answer.
@@ -63,19 +63,19 @@ Given a raw `.iq` (headerless interleaved I/Q binary) or `.wav` recording, SigIQ
 
 | Term | Plain-English meaning |
 |---|---|
-| **IQ / `.iq` file** | The raw recorded radio wave, stored as numbers instead of sound — the rawest form of a captured signal, with no built-in description of what it contains. |
-| **Modulation** (BPSK, QPSK, 16-QAM, 2-FSK, 4-FSK) | The "alphabet" the sender used to turn bits into wave changes. Different modulations pack different amounts of data per wave cycle and tolerate noise differently — like choosing between Morse code, semaphore, or full sentences. |
-| **Symbol rate** | How fast the sender is changing the wave — i.e., how fast it's "speaking." |
+| **IQ / `.iq` file** | The raw recorded radio wave, stored as numbers instead of sound: the rawest form of a captured signal, with no built-in description of what it contains. |
+| **Modulation** (BPSK, QPSK, 16-QAM, 2-FSK, 4-FSK) | The "alphabet" the sender used to turn bits into wave changes. Different modulations pack different amounts of data per wave cycle and tolerate noise differently, like choosing between Morse code, semaphore, or full sentences. |
+| **Symbol rate** | How fast the sender is changing the wave: how fast it's "speaking." |
 | **Carrier offset** | How far the actual signal drifted from the frequency you expected to find it at. |
-| **SNR (Signal-to-Noise Ratio)** | How clean the recording is — high SNR means a clear signal, low SNR means it's buried in static. |
+| **SNR (Signal-to-Noise Ratio)** | How clean the recording is: high SNR means a clear signal, low SNR means it's buried in static. |
 | **Bandwidth** | How much of the radio spectrum (how wide a "slice" of frequencies) the signal occupies. |
-| **Interleaving** | A scrambling step some transmitters apply on purpose, so that if a chunk of the signal gets corrupted, the damage is spread out thin instead of wiping out one whole piece of the message — un-scrambling it is a prerequisite to reading the data. |
-| **FEC (Forward Error Correction)** — Viterbi, Reed-Solomon, LDPC, etc. | Extra bits the sender adds on purpose so the receiver can detect *and fix* small errors caused by noise, without needing to ask for a retransmission — like a spell-checker built into the message itself. |
+| **Interleaving** | A scrambling step some transmitters apply on purpose, so that if a chunk of the signal gets corrupted, the damage is spread out thin instead of wiping out one whole piece of the message; un-scrambling it is a prerequisite to reading the data. |
+| **FEC (Forward Error Correction)** (Viterbi, Reed-Solomon, LDPC, etc.) | Extra bits the sender adds on purpose so the receiver can detect *and fix* small errors caused by noise, without needing to ask for a retransmission, like a spell-checker built into the message itself. |
 | **LLR (soft bit / Log-Likelihood Ratio)** | Instead of the demodulator committing early to "this bit is definitely a 0," it keeps a confidence score ("probably a 0, but not certain"). Feeding that confidence into the error-correction step (rather than throwing it away) recovers more of the message from noisy signals. |
-| **EVM (Error Vector Magnitude)** | A measurement of how far each received symbol landed from where it was supposed to land — a cleanliness score for the demodulation itself. |
+| **EVM (Error Vector Magnitude)** | A measurement of how far each received symbol landed from where it was supposed to land: a cleanliness score for the demodulation itself. |
 | **Sync word / header** (CCSDS ASM, HDLC flag, Barker-11) | A known, fixed bit pattern some transmission standards put at the start of each message, purely so a receiver can find "here's where the real content begins." Recognizing one of these patterns is a strong clue about which standard is in use. |
 | **Hypothesis** | One guess at "the modulation is X, the symbol rate is Y, etc." SigIQ tests many hypotheses and scores each one against the actual recording, rather than assuming one is correct. |
-| **Verdict** (`determined` / `ambiguous` / `insufficient_evidence`) | SigIQ's own honesty label on its answer — "confident," "torn between two options," or "not enough signal to say," instead of always picking a winner. |
+| **Verdict** (`determined` / `ambiguous` / `insufficient_evidence`) | SigIQ's own honesty label on its answer: "confident," "torn between two options," or "not enough signal to say," instead of always picking a winner. |
 
 </details>
 
@@ -88,14 +88,14 @@ Given a raw `.iq` (headerless interleaved I/Q binary) or `.wav` recording, SigIQ
 | 📥 **File Input** | Loads headerless `.iq` (raw interleaved I/Q) or `.wav` recordings; reads whatever metadata a `.wav` header actually carries. |
 | 🎚 **Signal Isolation** | Energy-based segmentation and strongest-channel detection, with the waveform and waterfall of exactly what was isolated. |
 | 📊 **Evidence Extraction** | Spectral, temporal, and statistical features, plus symbol rate, carrier offset, and bandwidth estimation with a full re-estimation search trace. |
-| 🧪 **Multi-Hypothesis Scoring** | Every candidate modulation is demodulated and scored on constellation fit, order consistency, and timing fit — not just the winner. |
+| 🧪 **Multi-Hypothesis Scoring** | Every candidate modulation is demodulated and scored on constellation fit, order consistency, and timing fit, not just the winner. |
 | 🛰 **Demodulation** | PSK, QAM, and FSK demodulators, each emitting soft per-bit LLRs alongside hard bits. |
-| 🔗 **De-interleaving + FEC** | Block, convolutional, diagonal, and pseudo-random de-interleavers; Viterbi, Reed-Solomon, concatenated, and LDPC decoders — searched jointly, soft-decision where supported. |
+| 🔗 **De-interleaving + FEC** | Block, convolutional, diagonal, and pseudo-random de-interleavers; Viterbi, Reed-Solomon, concatenated, and LDPC decoders, searched jointly, soft-decision where supported. |
 | 📡 **Bit-Stream Correlation** | Known sync-word matching (CCSDS ASM, HDLC flag, Barker-11) backed by a statistical false-alarm test. |
 | 📤 **Export** | Hypotheses and the full analysis report as CSV / JSON. |
 
 <details>
-<summary><b>🔒 The design rule behind every result — click to expand</b></summary>
+<summary><b>🔒 The design rule behind every result (click to expand)</b></summary>
 <br/>
 
 **Never hardcode a detected result, confidence value, sample rate, FEC outcome, or plot value.**
@@ -104,7 +104,7 @@ Some concrete guarantees that follow from that rule:
 
 - A **"decoded"** result only appears if a decoder's parity/syndrome check genuinely passes, or a Viterbi decode's bit-mismatch rate is statistically far enough below what a random stream produces (a z-test against a random-stream baseline, not a fixed threshold).
 - A **"header found"** result only appears if the correlation peak clears a binomial false-alarm test at `p < 0.01`, Bonferroni-corrected across the sync words tried.
-- **Pure noise input** is reported as `insufficient_evidence` with nothing recovered — verified by a test that feeds the pipeline seeded random noise and asserts nothing downstream fires.
+- **Pure noise input** is reported as `insufficient_evidence` with nothing recovered, verified by a test that feeds the pipeline seeded random noise and asserts nothing downstream fires.
 - **Soft-decision (LLR)** information from demodulation is threaded through de-interleaving into Viterbi/LDPC decoding when available, instead of being discarded in favor of hard 0/1 bits. Measured to cut output BER from **14.6% → 0.4%** at the same SNR in one Viterbi test case.
 
 </details>
@@ -124,11 +124,11 @@ data only ever flows back up as a single result object, and the DSP engine has n
 
 | Layer | Role |
 |---|---|
-| **`gui/`** (Tkinter UI) | File input and configuration, the four result tabs, and the plots — all in `app.py` and `plots.py`. Its only job is to call `run_pipeline()` and render whatever comes back; it contains no signal-processing code of its own. |
+| **`gui/`** (Tkinter UI) | File input and configuration, the four result tabs, and the plots, all in `app.py` and `plots.py`. Its only job is to call `run_pipeline()` and render whatever comes back; it contains no signal-processing code of its own. |
 | **`core/`** (DSP engine) | Twelve packages covering the whole signal chain, from loading through the pipeline orchestrator itself. None of them import anything from `gui/`, which is what makes `core/` runnable and testable completely on its own. |
 | **`AnalysisResult`** | The one object `core/` hands back: estimated parameters, scored hypotheses, recovered bits, a provenance label for every value, and the visualization data the plots render. The GUI never reaches back into `core/` for anything not already in this object. |
 
-`core/` is directly testable and runnable with no GUI involved at all — see `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full pipeline:
+`core/` is directly testable and runnable with no GUI involved at all. See `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full pipeline:
 
 ```bash
 python -m tests.test_pipeline_smoke
@@ -151,13 +151,13 @@ Implemented in `core/pipeline/analyzer.py`:
 **Reading the diagram:**
 
 1. **Raw IQ / WAV → Pre-processing → Signal Isolation → Evidence Extraction.** The file is loaded, DC offset and power are normalized (with optional denoising), the active segment and channel are isolated, and spectral/temporal/statistical features plus initial parameter estimates are extracted.
-2. **Core engine: multi-hypothesis validation and scoring.** Candidate modulations (BPSK, QPSK, 16-QAM, 2-FSK, 4-FSK by default) are generated in parallel. Each one is demodulated and scored on constellation fit, order consistency, and timing fit **inside this box, not after it** — a candidate cannot be scored without being demodulated first.
+2. **Core engine: multi-hypothesis validation and scoring.** Candidate modulations (BPSK, QPSK, 16-QAM, 2-FSK, 4-FSK by default) are generated in parallel. Each one is demodulated and scored on constellation fit, order consistency, and timing fit **inside this box, not after it**: a candidate cannot be scored without being demodulated first.
 3. **Re-estimate.** If the result is weak or ambiguous, the search retries. Most retries are a bounded coordinate search over symbol rate, carrier offset, and low-pass cutoff that loops straight back into evidence scoring using the samples already isolated; the diagram's arrow back to "Pre-processing" represents the fallback case, when that search is exhausted and a new preprocessing profile is tried from scratch.
 4. **Best-Supported Hypothesis.** The winner's verdict is one of `determined`, `ambiguous`, `insufficient_evidence`, or `user_selected`, and its bits (already produced during scoring) carry forward. No modulation is ever named with unsupported confidence.
 5. **De-interleaving & FEC → Bit-stream Correlation → Recovered Information.** De-interleaving and FEC are searched jointly, not as a fixed chain, ranked by header correlation and FEC success. Known sync-word matching then locates a header/payload region if the false-alarm test allows it.
 
 <details>
-<summary><b>📜 Exact stage-by-stage detail — click to expand</b></summary>
+<summary><b>📜 Exact stage-by-stage detail (click to expand)</b></summary>
 
 ```text
 Input Loader (iq_reader / wav_reader, metadata_parser)
@@ -230,9 +230,9 @@ flowchart LR
     Chk4 -- yes --> Det[determined]
 ```
 
-> **Timing fit ok** — at or above the minimum timing-fit threshold.
-> **Score ok** — the best score is at or above the minimum score.
-> **Margin ok** — the best score beats the runner-up by at least the ambiguity margin.
+> **Timing fit ok:** at or above the minimum timing-fit threshold.
+> **Score ok:** the best score is at or above the minimum score.
+> **Margin ok:** the best score beats the runner-up by at least the ambiguity margin.
 
 <br/>
 
@@ -294,7 +294,7 @@ choose which modulations, de-interleavers, and FEC types to try (or switch to Ma
 **File loaded, ready to run**
 
 Selecting a file reads whatever metadata is available: sample rate and channel count from a `.wav`
-header. A `.iq` file carries none, so sample rate and data type must be entered manually — a real
+header. A `.iq` file carries none, so sample rate and data type must be entered manually, a real
 limitation of headerless IQ.
 
 <img src="public/02_loaded.png" alt="File loaded"/>
@@ -327,7 +327,7 @@ the re-estimation search trace and the spectrum (PSD) plot they were measured fr
 ### Tab: Hypothesis & Demodulation
 
 The verdict, front and center: which modulation won, its score, confidence relative to the runner-up,
-and the pipeline's verdict rule — plus every candidate that was actually demodulated and scored, not
+and the pipeline's verdict rule, plus every candidate that was actually demodulated and scored, not
 just the winner, with its own per-metric breakdown.
 
 <div align="center">
@@ -368,7 +368,7 @@ with the false-alarm probability that makes a "header found" claim a statistical
 
 **Measured, not claimed.** `tests/test_accuracy_report.py` builds signals with known ground-truth
 modulation, symbol rate, and bits, runs them through the real pipeline, and compares the output
-numerically — not just whether the best-hypothesis label matches.
+numerically, not just whether the best-hypothesis label matches.
 
 ```bash
 python -m tests.test_accuracy_report
@@ -392,7 +392,7 @@ streams are verified and random bits are not, headers need statistical significa
 labelled user-provided, and the re-estimation search stops on tolerance and iteration limit.
 
 <details>
-<summary><b>🐛 Correctness bugs found and fixed — click to expand</b></summary>
+<summary><b>🐛 Correctness bugs found and fixed (click to expand)</b></summary>
 <br/>
 
 1. The symbol-rate estimator used only `|signal|^2`, which is flat for constant-envelope modulations. A transition-energy feature and a signed instantaneous-frequency feature were added (`core/feature_extraction/cyclostationary.py`).
@@ -416,7 +416,7 @@ labelled user-provided, and the re-estimation search stops on tolerance and iter
 Documented, not hidden.
 
 <details>
-<summary><b>View the full limitations table — click to expand</b></summary>
+<summary><b>View the full limitations table (click to expand)</b></summary>
 <br/>
 
 | Area | Limitation |
