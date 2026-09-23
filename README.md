@@ -169,6 +169,31 @@ Input Loader (iq_reader / wav_reader, metadata_parser)
   -> Recovered information
 ```
 
+### Inside the core engine: scoring and re-estimation in detail
+
+The image above draws one "Re-estimate" arrow back to pre-processing, which is really the fallback of
+two nested retry loops. Point 3 above explains it in words; this is the same logic as a flowchart,
+left to right:
+
+```mermaid
+flowchart LR
+    CG[Candidate Generation] --> DM[Demodulate each candidate]
+    DM --> ES[Evidence Scoring]
+    ES --> Q{Weak or ambiguous?}
+    Q -- no --> BH[Best-supported hypothesis + verdict]
+    Q -- yes --> IN{Search budget left<br/>at this profile?}
+    IN -- yes --> RS[Re-estimation search:<br/>symbol rate / carrier offset / low-pass] --> ES
+    IN -- no --> NP{Another preprocessing<br/>profile to try?}
+    NP -- yes --> PP[New preprocessing profile] --> ISO[Isolation + feature extraction] --> CG
+    NP -- no --> BH
+```
+
+The inner loop (`RS --> ES`) is the one that fires on almost every weak/ambiguous result: it re-scores
+at nearby symbol-rate/offset/cutoff points without leaving the current preprocessing profile. The outer
+loop (`PP --> ISO --> CG`) is what the image's single arrow actually represents: it only runs once the
+inner search is exhausted and the result is still weak, and it starts over from a new preprocessing
+profile.
+
 ### Verdict decision logic
 
 Implemented in `core/scoring/verdict.py`, checked in this exact order:
