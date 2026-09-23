@@ -14,3 +14,6 @@ venv/
 # working notes and the internal design contract -- kept locally, not published
 /CLAUDE.md
 /docs/implementation_spec.md
+
+# reference README from another project, kept locally for style reference only
+/README_Demo.md
