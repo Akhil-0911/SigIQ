@@ -79,17 +79,27 @@ value. Every number shown in the UI is computed from the loaded signal, on that 
 SigIQ follows a strict **two-layer, one-direction** architecture. The DSP engine has no idea a GUI
 exists.
 
-```mermaid
-flowchart LR
-    A["gui/app.py<br/>File input + configuration"] --> B["run_pipeline()<br/>background thread"]
-    B --> C["core/<br/>DSP engine, no UI imports"]
-    C --> D["AnalysisResult<br/>parameters, hypotheses,<br/>recovery, provenance"]
-    D --> E["gui/ result tabs + plots<br/>render only"]
 ```
-
-`core/`'s twelve packages (`io/`, `preprocessing/`, `isolation/`, `feature_extraction/`, `estimation/`,
-`hypotheses/`, `scoring/`, `demodulation/`, `deinterleaving/`, `fec/`, `correlation/`, `pipeline/`) sit
-entirely inside the "DSP engine" box above; none of them import anything from `gui/`.
+┌───────────────────────────────────────────────────────┐
+│                    gui/  (Tkinter UI)                  │
+│                                                         │
+│   File input + config   │   Result tabs   │   Plots     │
+│   (app.py)               │   (app.py)      │   (plots.py)│
+└───────────────────────┬─────────────────────────────────┘
+                        │ calls run_pipeline() in a background thread
+┌───────────────────────▼─────────────────────────────────┐
+│                 core/  (DSP engine, no UI imports)       │
+│                                                         │
+│   io/  preprocessing/  isolation/  feature_extraction/  │
+│   estimation/  hypotheses/  scoring/  demodulation/      │
+│   deinterleaving/  fec/  correlation/  pipeline/         │
+└───────────────────────┬─────────────────────────────────┘
+                        │ returns
+┌───────────────────────▼─────────────────────────────────┐
+│                     AnalysisResult                       │
+│   parameters │ hypotheses │ recovery │ provenance │ viz  │
+└───────────────────────────────────────────────────────────┘
+```
 
 `core/` is directly testable and runnable on its own, with no GUI involved at all. See
 `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full
