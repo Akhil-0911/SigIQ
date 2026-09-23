@@ -440,9 +440,9 @@ python -m tests.test_accuracy_report   # ground-truth accuracy table (~25 s)
 
 ## 🤝 Contributing
 
-This is currently a single-maintainer project without a public issue/PR workflow set up yet. If that
-changes, contribution guidelines will be added here. For now, the most useful thing a reader can do is
-run the test suite above and check the Known Limitations section before assuming something is a bug.
+This project doesn't have a public issue/PR workflow set up yet. If that changes, contribution
+guidelines will be added here. For now, the most useful thing a reader can do is run the test suite
+above and check the Known Limitations section before assuming something is a bug.
 
 ---
 
@@ -450,8 +450,9 @@ run the test suite above and check the Known Limitations section before assuming
 
 <img src="public/SIgIQ.png" width="48" height="48" alt="SigIQ"/>
 
-Built by [Akhil-0911](https://github.com/Akhil-0911)
+Built by [Akhil-0911](https://github.com/Akhil-0911) · [RAVI-RM07](https://github.com/RAVI-RM07) ·
+[sangsaist](https://github.com/sangsaist)
 
-[![GitHub](https://img.shields.io/badge/GitHub-Akhil--0911%2FNTRO-181717?style=flat-square&logo=github)](https://github.com/Akhil-0911/NTRO)
+[![GitHub](https://img.shields.io/badge/GitHub-Akhil--0911%2FSigIQ-181717?style=flat-square&logo=github)](https://github.com/Akhil-0911/SigIQ)
 
 </div>
