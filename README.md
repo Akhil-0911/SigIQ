@@ -79,27 +79,7 @@ value. Every number shown in the UI is computed from the loaded signal, on that 
 SigIQ follows a strict **two-layer, one-direction** architecture. The DSP engine has no idea a GUI
 exists.
 
-```
-┌───────────────────────────────────────────────────────┐
-│                    gui/  (Tkinter UI)                  │
-│                                                         │
-│   File input + config   │   Result tabs   │   Plots     │
-│   (app.py)               │   (app.py)      │   (plots.py)│
-└───────────────────────┬─────────────────────────────────┘
-                        │ calls run_pipeline() in a background thread
-┌───────────────────────▼─────────────────────────────────┐
-│                 core/  (DSP engine, no UI imports)       │
-│                                                         │
-│   io/  preprocessing/  isolation/  feature_extraction/  │
-│   estimation/  hypotheses/  scoring/  demodulation/      │
-│   deinterleaving/  fec/  correlation/  pipeline/         │
-└───────────────────────┬─────────────────────────────────┘
-                        │ returns
-┌───────────────────────▼─────────────────────────────────┐
-│                     AnalysisResult                       │
-│   parameters │ hypotheses │ recovery │ provenance │ viz  │
-└───────────────────────────────────────────────────────────┘
-```
+![SigIQ architecture diagram](public/arch.png)
 
 `core/` is directly testable and runnable on its own, with no GUI involved at all. See
 `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full
