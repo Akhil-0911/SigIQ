@@ -1,43 +1,36 @@
 <div align="center">
 
-# 📡 Signal Analysis Workstation
+<img src="public/SIgIQ.png" width="120" height="120" alt="SigIQ Logo"/>
 
-**A Tkinter desktop application and numpy/scipy DSP engine for automated `.iq` / `.wav` signal analysis.**
+<h1>SigIQ</h1>
 
-Parameter estimation, modulation identification, demodulation, de-interleaving, FEC decoding, and
-bit-stream correlation, with every result labelled by where it actually came from.
+<p><strong>Signal Analysis Workstation for automated RF signal identification and recovery</strong></p>
 
-![Python](https://img.shields.io/badge/python-3.10-blue?logo=python&logoColor=white)
-![GUI](https://img.shields.io/badge/GUI-Tkinter-orange)
-![DSP](https://img.shields.io/badge/DSP-numpy%20%2F%20scipy-013243?logo=numpy&logoColor=white)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
-![Tests](https://img.shields.io/badge/tests-15%2F15%20passing-brightgreen)
-![No hardcoding](https://img.shields.io/badge/results-never%20hardcoded-critical)
+[![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Tkinter](https://img.shields.io/badge/GUI-Tkinter-FF6F00?style=for-the-badge)](https://docs.python.org/3/library/tkinter.html)
+[![NumPy](https://img.shields.io/badge/DSP-NumPy%20%2F%20SciPy-013243?style=for-the-badge&logo=numpy&logoColor=white)](https://numpy.org/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-5C6BC0?style=for-the-badge)]()
+[![Tests](https://img.shields.io/badge/Tests-15%2F15%20passing-2E7D32?style=for-the-badge)]()
+[![No hardcoding](https://img.shields.io/badge/Results-never%20hardcoded-C62828?style=for-the-badge)]()
+
+<br/>
+
+> **SigIQ** is a 100% local, offline-first Tkinter application and numpy/scipy DSP engine that takes a
+> raw `.iq` or `.wav` recording and determines its modulation, transmission parameters, and recoverable
+> bitstream end to end, with every result labelled by where it actually came from.
+
+<br/>
+
+[Installation](#-installation) · [Features](#-features) · [Architecture](#-architecture) · [Pipeline Flow](#-pipeline-flow) · [Interface Walkthrough](#-interface-walkthrough) · [Tech Stack](#-tech-stack) · [Accuracy](#-accuracy) · [Known Limitations](#-known-limitations) · [Contributing](#-contributing)
 
 </div>
 
 ---
 
-## Contents
+## 🧠 Overview
 
-1. [Overview](#1-overview)
-2. [Design principles](#2-design-principles)
-3. [Architecture](#3-architecture)
-4. [Pipeline stages](#4-pipeline-stages)
-5. [Installation](#5-installation)
-6. [Usage](#6-usage)
-7. [Interface walkthrough](#7-interface-walkthrough)
-8. [Accuracy](#8-accuracy)
-9. [Known limitations](#9-known-limitations)
-10. [Project layout](#10-project-layout)
-11. [Testing](#11-testing)
-
----
-
-## 1. Overview
-
-Given a raw `.iq` (headerless interleaved I/Q binary) or `.wav` recording, this tool determines,
-end to end and with no manual DSP work:
+Given a raw `.iq` (headerless interleaved I/Q binary) or `.wav` recording, SigIQ determines, end to end
+and with no manual DSP work:
 
 | Question | How it is answered |
 |---|---|
@@ -46,43 +39,69 @@ end to end and with no manual DSP work:
 | Are the bits interleaved and/or FEC-coded? | A joint search over de-interleaving (block, convolutional, diagonal, pseudo-random) and FEC (Viterbi, Reed-Solomon, concatenated, LDPC), kept only if a header match or a verifying decoder supports it. |
 | Is there a recognizable header/payload? | Correlation against known sync words (CCSDS ASM, HDLC flag, Barker-11), backed by a statistical false-alarm test, not a similarity guess. |
 
-If the evidence is weak, or the signal is ambiguous between two hypotheses, the tool says so
-(`ambiguous` or `insufficient_evidence`) instead of forcing a confident-looking wrong answer.
+If the evidence is weak, or the signal is ambiguous between two hypotheses, SigIQ says so (`ambiguous`
+or `insufficient_evidence`) instead of forcing a confident-looking wrong answer.
 
-## 2. Design principles
+---
 
-This project was built against one rule: **never hardcode a detected result, confidence value, sample
-rate, FEC outcome, or plot value.** Every number shown in the UI is computed from the loaded signal, on
-that run, by the code in `core/`. Some concrete guarantees that follow from that rule:
+## 🧩 Features
+
+| Module | Description |
+|---|---|
+| 📥 **File Input** | Loads headerless `.iq` (raw interleaved I/Q) or `.wav` recordings; reads whatever metadata a `.wav` header actually carries. |
+| 🎚 **Signal Isolation** | Energy-based segmentation and strongest-channel detection, with the waveform and waterfall of exactly what was isolated. |
+| 📊 **Evidence Extraction** | Spectral, temporal, and statistical features, plus symbol rate, carrier offset, and bandwidth estimation with a full re-estimation search trace. |
+| 🧪 **Multi-Hypothesis Scoring** | Every candidate modulation is demodulated and scored on constellation fit, order consistency, and timing fit, not just the winner. |
+| 🛰 **Demodulation** | PSK, QAM, and FSK demodulators, each emitting soft per-bit LLRs alongside hard bits. |
+| 🔗 **De-interleaving + FEC** | Block, convolutional, diagonal, and pseudo-random de-interleavers; Viterbi, Reed-Solomon, concatenated, and LDPC decoders, searched jointly and soft-decision where supported. |
+| 📡 **Bit-Stream Correlation** | Known sync-word matching (CCSDS ASM, HDLC flag, Barker-11) backed by a statistical false-alarm test. |
+| 📤 **Export** | Hypotheses and the full analysis report as CSV / JSON. |
+
+**Design rule:** never hardcode a detected result, confidence value, sample rate, FEC outcome, or plot
+value. Every number shown in the UI is computed from the loaded signal, on that run, by the code in
+`core/`. Some concrete guarantees that follow from that rule:
 
 - A "decoded" result only appears if a decoder's parity/syndrome check genuinely passes, or a Viterbi
   decode's bit-mismatch rate is statistically far enough below what a random stream produces (a z-test
   against a random-stream baseline, not a fixed threshold).
 - A "header found" result only appears if the correlation peak clears a binomial false-alarm test at
-  p < 0.01, Bonferroni-corrected across the sync words tried. An 8-bit pattern matching by chance in a
-  few thousand random bits is expected, and is not reported as a find.
+  p < 0.01, Bonferroni-corrected across the sync words tried.
 - Pure noise input is reported as `insufficient_evidence` with nothing recovered, verified by a test
   that feeds the pipeline seeded random noise and asserts nothing downstream fires.
 - Soft-decision (LLR) information from demodulation is threaded through de-interleaving into Viterbi/LDPC
   decoding when available, instead of being discarded in favor of hard 0/1 bits. Measured to cut output
   BER from 14.6% to 0.4% at the same SNR in one Viterbi test case.
 
-## 3. Architecture
+---
+
+## 🏛 Architecture
+
+SigIQ follows a strict **two-layer, one-direction** architecture. The DSP engine has no idea a GUI
+exists.
 
 ```
-gui/          Tkinter desktop app: file input, configuration, plots, results
-core/         the DSP engine: numpy/scipy only, no UI dependencies
+┌───────────────────────────────────────────────────────┐
+│                    gui/  (Tkinter UI)                  │
+│                                                         │
+│   File input + config   │   Result tabs   │   Plots     │
+│   (app.py)               │   (app.py)      │   (plots.py)│
+└───────────────────────┬─────────────────────────────────┘
+                        │ calls run_pipeline() in a background thread
+┌───────────────────────▼─────────────────────────────────┐
+│                 core/  (DSP engine, no UI imports)       │
+│                                                         │
+│   io/  preprocessing/  isolation/  feature_extraction/  │
+│   estimation/  hypotheses/  scoring/  demodulation/      │
+│   deinterleaving/  fec/  correlation/  pipeline/         │
+└───────────────────────┬─────────────────────────────────┘
+                        │ returns
+┌───────────────────────▼─────────────────────────────────┐
+│                     AnalysisResult                       │
+│   parameters │ hypotheses │ recovery │ provenance │ viz  │
+└───────────────────────────────────────────────────────────┘
 ```
 
-```mermaid
-flowchart LR
-    A[".iq / .wav file"] --> B[File input + config]
-    B --> C[run_pipeline]
-    C --> D[AnalysisResult]
-    D --> E[Result tabs render]
-```
-
-`core/` has no import of `gui/`, and is directly testable and runnable on its own. See
+`core/` is directly testable and runnable on its own, with no GUI involved at all. See
 `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full
 pipeline:
 
@@ -92,32 +111,37 @@ python -m tests.test_behaviour
 python -m tests.test_ldpc
 ```
 
-The desktop app runs `core.pipeline.analyzer.run_pipeline()` in a background thread and renders the
-result. It performs no DSP itself.
+---
 
-## 4. Pipeline stages
+## 🔀 Pipeline Flow
 
-Implemented in `core/pipeline/analyzer.py`.
+Implemented in `core/pipeline/analyzer.py`:
 
-Part 1: loading through the re-estimation loop.
+![SigIQ pipeline flowchart](public/FlowChart.jpeg)
 
-```mermaid
-flowchart LR
-    L[Input Loader] --> P[Preprocessing] --> I[Isolation] --> F[Feature Extraction]
-    F --> E[Parameter Estimation] --> G[Candidate Generation] --> S[Evidence Scoring]
-    S --> W{Weak or ambiguous?}
-    W -- yes --> R[Re-estimation search] --> S
-```
+**Reading the diagram:**
 
-Part 2: once the verdict is no longer weak or ambiguous.
+1. **Raw IQ / WAV → Pre-processing → Signal Isolation → Evidence Extraction.** The file is loaded, DC
+   offset and power are normalized (with optional denoising), the active segment and channel are
+   isolated, and spectral/temporal/statistical features plus initial parameter estimates are extracted.
+2. **Core engine: multi-hypothesis validation and scoring.** Candidate modulations (BPSK, QPSK, 16-QAM,
+   2-FSK, 4-FSK by default, three shown above as an example) are generated in parallel. Each one is
+   demodulated and scored on constellation fit, order consistency, and timing fit inside this box, not
+   after it: a candidate cannot be scored without being demodulated first, so demodulation happens here,
+   per candidate, not as a separate step later.
+3. **Re-estimate.** If the result is weak or ambiguous, the search retries. Most retries are a bounded
+   coordinate search over symbol rate, carrier offset, and low-pass cutoff that loops straight back into
+   evidence scoring using the samples already isolated; the diagram's arrow back to "Pre-processing"
+   represents the fallback case, when that search is exhausted and a new preprocessing profile (for
+   example, with denoising) is tried from scratch.
+4. **Best-Supported Hypothesis.** The winner's verdict is one of `determined`, `ambiguous`,
+   `insufficient_evidence`, or `user_selected`, and its bits (already produced during scoring) carry
+   forward. No modulation is ever named with unsupported confidence.
+5. **De-interleaving & FEC → Bit-stream Correlation → Recovered Information.** De-interleaving and FEC
+   are searched jointly, not as a fixed chain, ranked by header correlation and FEC success. Known
+   sync-word matching then locates a header/payload region if the false-alarm test allows it.
 
-```mermaid
-flowchart LR
-    V[Best hypothesis + verdict] --> D[De-interleave x FEC]
-    D --> H[Sync-word matching] --> PL[Header / payload] --> RI[Recovered information]
-```
-
-Each box above is one stage; the exact detail behind it:
+The exact detail behind each box:
 
 ```
 Input Loader (iq_reader / wav_reader, metadata_parser)
@@ -145,21 +169,7 @@ Input Loader (iq_reader / wav_reader, metadata_parser)
   -> Recovered information
 ```
 
-Notes on what this does and does not do:
-
-- Demodulation happens per candidate during scoring, not once after the winner is chosen. Only the
-  winner's bits (and soft LLRs, when available) are recovered further.
-- De-interleaving and FEC are a joint search, not a fixed chain. Header correlation is used inside that
-  search as well as afterwards.
-- Every reported parameter has a source: user-provided, metadata-derived, estimated, candidate-inferred
-  or tested, or decoded. A manual choice is never presented as detected.
-- With no symbol clock, or too little evidence, the result says so (`insufficient_evidence`) and nothing
-  is recovered. Pure noise is handled this way.
-- Header detection recognises three fixed sync words. It does not discover an unknown frame structure.
-- Visualization data (waveform, PSD, waterfall, constellation) is produced by the pipeline. `gui/plots.py`
-  only renders it and is not part of recovery.
-
-### 4.1 Verdict decision logic
+### Verdict decision logic
 
 Implemented in `core/scoring/verdict.py`, checked in this exact order:
 
@@ -182,7 +192,9 @@ flowchart LR
 or above the minimum score; "Margin ok" means the best score beats the runner-up by at least the
 ambiguity margin.
 
-## 5. Installation
+---
+
+## 🚀 Installation
 
 ```bash
 # conda (recommended): creates the "iqfile" environment
@@ -193,24 +205,14 @@ conda activate iqfile
 pip install -r requirements.txt
 ```
 
-| Package | Version |
-|---|---|
-| Python | 3.10 |
-| numpy | 2.2.6 |
-| scipy | 1.15.3 |
-| matplotlib | 3.10.9 |
-| reedsolo | 1.7.0 |
-| tk | 8.6 |
-
-## 6. Usage
+**Run it:**
 
 ```bash
 python main.py
 ```
 
 The window opens maximized. The left panel handles file input and configuration. The right panel has
-four tabs, one per pipeline stage, each carrying its own plots alongside its data. There is no separate
-"visualization" tab; every plot lives next to the stage that produced it.
+four tabs, one per pipeline stage, each carrying its own plots alongside its data.
 
 | Tab | Contents |
 |---|---|
@@ -221,40 +223,41 @@ four tabs, one per pipeline stage, each carrying its own plots alongside its dat
 
 Hypotheses and the full report can be exported as CSV / JSON. Try it with the files in `samples/`.
 
-## 7. Interface walkthrough
+---
+
+## 🖥 Interface Walkthrough
 
 The screenshots below are the actual, live application (captured via `PrintWindow` on its own window,
 not mocked up), analyzing `samples/bpsk_carrier_8k.wav`.
 
-### 7.1 Idle state
+### Idle state
 
 Nothing loaded yet. The left panel is where every run starts: pick a file, confirm its format details,
 choose which modulations, de-interleavers, and FEC types to try (or switch to Manual mode to fix a
 specific parameter and only search the rest), then click **Run Analysis**.
 
-![Idle state](docs/screenshots/01_idle.png)
+![Idle state](public/01_idle.png)
 
-### 7.2 File loaded, ready to run
+### File loaded, ready to run
 
 Selecting a file reads whatever metadata is available: sample rate and channel count from a `.wav`
 header. A `.iq` file carries none, so sample rate and data type must be entered manually. This is a
 real limitation of headerless IQ, not something the tool can guess around. The **Run Analysis** button
 enables once there is enough information to start.
 
-![File loaded](docs/screenshots/02_loaded.png)
+![File loaded](public/02_loaded.png)
 
-### 7.3 Tab: Signal Isolation
+### Tab: Signal Isolation
 
 Shows exactly which part of the recording and which frequency channel the rest of the pipeline is
 analyzing: the active sample range, isolated fraction, the detected channel's center offset and
-bandwidth, and which preprocessing profile was used (the plain "default" profile, or a denoised/
-re-filtered one if the first pass was too weak to score confidently). Below that, the waveform envelope
-and a waterfall (time versus frequency) of that isolated segment. This is the signal before any
-down-conversion, so it shows where the signal actually sits in frequency.
+bandwidth, and which preprocessing profile was used. Below that, the waveform envelope and a waterfall
+(time versus frequency) of that isolated segment. This is the signal before any down-conversion, so it
+shows where the signal actually sits in frequency.
 
-![Signal Isolation tab](docs/screenshots/03_signal_isolation.png)
+![Signal Isolation tab](public/03_signal_isolation.png)
 
-### 7.4 Tab: Evidence Extraction
+### Tab: Evidence Extraction
 
 The estimated parameters (sample rate, carrier offset, symbol rate, bandwidth, SNR, samples per symbol,
 PAPR, spectral flatness, kurtosis, skewness), each tagged with its source in the third column. The
@@ -263,21 +266,19 @@ iteration the bounded coordinate search took over symbol rate, carrier offset, a
 whether each step was kept. The spectrum (PSD) plot below is exactly what these parameters were measured
 from.
 
-![Evidence Extraction tab](docs/screenshots/04_evidence_extraction.png)
+![Evidence Extraction tab](public/04_evidence_extraction.png)
 
-### 7.5 Tab: Hypothesis & Demodulation
+### Tab: Hypothesis & Demodulation
 
 The verdict, front and center: which modulation won, its score, confidence relative to the runner-up,
-and the pipeline's verdict rule (`determined`, `ambiguous`, `insufficient_evidence`, or
-`user_selected`). Below it, every candidate that was actually demodulated and scored, not just the
-winner, with its own per-metric breakdown (constellation fit, order consistency, timing fit, EVM), so
-you can see why one modulation beat the others rather than taking it on faith. The constellation plot on
-the right is the winning hypothesis's own demodulated symbols: cluster count and shape is direct visual
-evidence for the modulation call, and cluster tightness is a direct visual read of signal quality (EVM).
+and the pipeline's verdict rule. Below it, every candidate that was actually demodulated and scored, not
+just the winner, with its own per-metric breakdown (constellation fit, order consistency, timing fit,
+EVM), so you can see why one modulation beat the others rather than taking it on faith. The constellation
+plot on the right is the winning hypothesis's own demodulated symbols.
 
-![Hypothesis & Demodulation tab](docs/screenshots/05_hypothesis_demodulation.png)
+![Hypothesis & Demodulation tab](public/05_hypothesis_demodulation.png)
 
-### 7.6 Tab: Recovery Information
+### Tab: Recovery Information
 
 What happened after demodulation: which de-interleaver and FEC method (if any) were selected by the
 joint search, the parameters actually used, decode quality/success, and whether soft per-bit LLR
@@ -286,13 +287,29 @@ detection: pattern, offset, bit polarity, similarity, and the false-alarm probab
 "header found" claim a statistical statement rather than a guess. This particular file carries no
 framing, so both sides honestly report "not determined" / "not found" rather than inventing a decode.
 
-![Recovery Information tab](docs/screenshots/06_recovery_information.png)
+![Recovery Information tab](public/06_recovery_information.png)
 
-## 8. Accuracy
+---
+
+## 🛠 Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Language** | Python 3.10 | App and engine logic |
+| **GUI Framework** | Tkinter + ttk | Native desktop UI, no browser/server involved |
+| **Numerical Core** | numpy 2.2.6 | Array math throughout `core/` |
+| **DSP** | scipy 1.15.3 | Filtering, spectral analysis, statistics |
+| **Plotting** | matplotlib 3.10.9 | Waveform, spectrum, waterfall, constellation plots |
+| **FEC** | reedsolo 1.7.0 | Reed-Solomon encode/decode |
+| **Runtime** | tk 8.6 | Tkinter's underlying toolkit |
+
+---
+
+## 📊 Accuracy
 
 Measured, not claimed. `tests/test_accuracy_report.py` builds signals with known ground-truth
 modulation, symbol rate, and bits, runs them through the real pipeline, and compares the output
-numerically, not just whether the best-hypothesis label matches. Run it with:
+numerically, not just whether the best-hypothesis label matches.
 
 ```bash
 python -m tests.test_accuracy_report
@@ -315,9 +332,8 @@ BPSK, with the interleaver and FEC inferred, recovered exactly): pure noise is n
 streams are verified and random bits are not, headers need statistical significance, manual choices are
 labelled user-provided, and the re-estimation search stops on tolerance and iteration limit.
 
-### 8.1 Correctness bugs found and fixed
-
-Recorded here in case similar patterns turn up elsewhere.
+<details>
+<summary><strong>Correctness bugs found and fixed (click to expand)</strong></summary>
 
 1. The symbol-rate estimator used only `|signal|^2`, which is flat for constant-envelope modulations. A
    transition-energy feature and a signed instantaneous-frequency feature were added
@@ -344,7 +360,11 @@ Recorded here in case similar patterns turn up elsewhere.
    Viterbi/LDPC decoding (`core/demodulation/soft_bits.py`), verified to cut Viterbi output BER from
    14.6% to 0.4% and to let LDPC converge at an SNR where the hard-decision decoder failed outright.
 
-## 9. Known limitations
+</details>
+
+---
+
+## ⚠️ Known Limitations
 
 Documented, not hidden.
 
@@ -363,7 +383,9 @@ Documented, not hidden.
 | Spectral-fit metric | Not scored: for unshaped pulses, PSD peaks cannot discriminate hypotheses reliably. |
 | Runtime | Worst case is noise-like input (every profile and search step is tried), a few seconds for 8k samples. Real signals usually finish in 1 to 2 seconds. |
 
-## 10. Project layout
+---
+
+## 📁 Project Layout
 
 ```
 core/            signal-processing engine
@@ -382,13 +404,15 @@ core/            signal-processing engine
 gui/             Tkinter desktop UI (app.py, plots.py, style.py); launched by main.py
 tests/           smoke, behaviour, LDPC and accuracy tests
 samples/         small synthetic .iq / .wav files for trying the app
-docs/            screenshots used in this README
+public/          logo, flowchart, and interface screenshots used in this README
 main.py          entry point (launches the GUI)
 environment.yml  conda environment (Python 3.10, Tk 8.6, pinned packages)
 requirements.txt the same pinned packages for pip
 ```
 
-## 11. Testing
+---
+
+## 🧪 Testing
 
 ```bash
 python -m tests.test_pipeline_smoke    # synthetic BPSK end to end
@@ -396,3 +420,23 @@ python -m tests.test_behaviour         # honesty/behaviour checks (15 tests, ~40
 python -m tests.test_ldpc              # LDPC round trip + negative control
 python -m tests.test_accuracy_report   # ground-truth accuracy table (~25 s)
 ```
+
+---
+
+## 🤝 Contributing
+
+This is currently a single-maintainer project without a public issue/PR workflow set up yet. If that
+changes, contribution guidelines will be added here. For now, the most useful thing a reader can do is
+run the test suite above and check the Known Limitations section before assuming something is a bug.
+
+---
+
+<div align="center">
+
+<img src="public/SIgIQ.png" width="48" height="48" alt="SigIQ"/>
+
+Built by [Akhil-0911](https://github.com/Akhil-0911)
+
+[![GitHub](https://img.shields.io/badge/GitHub-Akhil--0911%2FNTRO-181717?style=flat-square&logo=github)](https://github.com/Akhil-0911/NTRO)
+
+</div>
