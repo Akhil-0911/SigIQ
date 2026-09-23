@@ -11,9 +11,10 @@ venv/
 /Raw_IQ_Dataset.zip
 /test_signals.zip
 
-# working notes and the internal design contract -- kept locally, not published
+# working notes, the internal design contract, and other local-only docs --
+# kept on disk, not published
 /CLAUDE.md
-/docs/implementation_spec.md
+/docs/
 
 # reference README from another project, kept locally for style reference only
 /README_Demo.md
