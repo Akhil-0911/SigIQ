@@ -76,10 +76,20 @@ value. Every number shown in the UI is computed from the loaded signal, on that 
 
 ## 🏛 Architecture
 
-SigIQ follows a strict **two-layer, one-direction** architecture. The DSP engine has no idea a GUI
-exists.
+SigIQ follows a strict **two-layer, one-direction** architecture: control only ever flows downward, data
+only ever flows back up as a single result object, and the DSP engine has no idea a GUI exists.
 
 ![SigIQ architecture diagram](public/arch.png)
+
+- **`gui/` (Tkinter UI):** file input and configuration, the four result tabs, and the plots, all in
+  `app.py` and `plots.py`. Its only job is to call `run_pipeline()` and render whatever comes back; it
+  contains no signal-processing code of its own.
+- **`core/` (DSP engine):** twelve packages covering the whole signal chain, from loading through the
+  pipeline orchestrator itself. None of them import anything from `gui/`, which is what makes `core/`
+  runnable and testable completely on its own.
+- **`AnalysisResult`:** the one object `core/` hands back: estimated parameters, scored hypotheses,
+  recovered bits, a provenance label for every value, and the visualization data the plots render. The
+  GUI never reaches back into `core/` for anything not already in this object.
 
 `core/` is directly testable and runnable on its own, with no GUI involved at all. See
 `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full
