@@ -22,4 +22,6 @@ venv/
 
 # technical report LaTeX source and compiled PDF, kept locally only
 /NSS_Technical_Report.tex
-/NSS_Technical_Report.pdf
+/NSS_Technical_Report.aux
+/NSS_Technical_Report.log
+/NSS_Technical_Report.out

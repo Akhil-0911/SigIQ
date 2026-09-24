@@ -16,6 +16,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 
 import numpy as np
+from PIL import Image, ImageTk
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -110,7 +111,11 @@ class SignalAnalysisApp(tk.Tk):
         ttk.Label(left, text="Signal Analysis Workstation", style="Title.TLabel").pack(anchor="w")
         ttk.Label(left, text="Load a .iq/.wav file, configure the analysis, and run the pipeline.",
                   style="Subtitle.TLabel").pack(anchor="w", pady=(2, 0))
-        ttk.Label(header, text="◈ SIGNAL CORE", style="Brand.TLabel").pack(side="right")
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "public", "logo.png")
+        logo_img = Image.open(logo_path)
+        logo_img.thumbnail((72, 72), Image.LANCZOS)
+        self._logo_photo = ImageTk.PhotoImage(logo_img)
+        ttk.Label(header, image=self._logo_photo, style="Panel.TLabel").pack(side="right")
         tk.Frame(self, bg="#d7dade", height=1).pack(fill="x")
 
     # ------------------------------------------------------------------ body
