@@ -21,7 +21,7 @@ labelled by where it came from, and it says "I don't know" when the evidence doe
 
 <br/>
 
-[**Installation**](#-installation) · [**Features**](#-features) · [**Architecture**](#-architecture) · [**Pipeline Flow**](#-pipeline-flow) · [**Interface Walkthrough**](#-interface-walkthrough) · [**Tech Stack**](#-tech-stack) · [**Accuracy**](#-accuracy) · [**Known Limitations**](#-known-limitations) · [**Contributing**](#-contributing)
+[**Installation**](#-installation) · [**Features**](#-features) · [**Innovation**](#-innovation-evidence-backed-hypothesis-validation) · [**Architecture**](#-architecture) · [**Pipeline Flow**](#-pipeline-flow) · [**Interface Walkthrough**](#-interface-walkthrough) · [**Tech Stack**](#-tech-stack) · [**Accuracy**](#-accuracy) · [**Known Limitations**](#-known-limitations) · [**Contributing**](#-contributing)
 
 </div>
 
@@ -81,6 +81,58 @@ Given a raw `.iq` (headerless interleaved I/Q binary) or `.wav` recording, SigIQ
 
 <br/>
 
+## 💡 Innovation: Evidence-Backed Hypothesis Validation
+
+The design principle above (never report a result the evidence does not support) is not
+just a coding convention, it is the core architectural idea behind SigIQ:
+
+> SigIQ does not classify an unknown radio signal and commit to that label. It generates
+> competing signal hypotheses, processes each one through demodulation and, where
+> applicable, de-interleaving and FEC, fuses the resulting evidence, rejects hypotheses
+> that fail validation, and reports `insufficient_evidence` when no hypothesis has enough
+> support to be named.
+
+A conventional automatic modulation recognition tool commits early: a classifier reduces
+the signal to a feature vector, names the most likely modulation, and everything
+downstream (demodulation, FEC decoding) assumes that label is correct. If the classifier
+is wrong, every later stage inherits that error silently.
+
+<div align="center">
+<img src="public/innovation_comparison.png" alt="Classification-first versus hypothesis-then-evidence" width="100%"/>
+</div>
+
+SigIQ scores every candidate (constellation fit, order consistency, timing fit) and only
+proceeds to recovery if the winner clears the verdict thresholds; otherwise it reports
+`insufficient_evidence` rather than an unsupported guess. Four supporting points make this
+concrete rather than aspirational:
+
+- **Open-set rejection is real and tested.** The verdict logic checks timing fit, best
+  score and score margin before naming a winner, so a signal with no real symbol clock, or
+  whose best candidate simply does not fit well enough, is not forced into the nearest
+  label. This is exercised by `tests/test_behaviour.py::test_pure_noise_is_not_classified`,
+  which feeds the pipeline seeded random noise and asserts the result is
+  `insufficient_evidence` with nothing recovered, not a low-confidence guess.
+- **Evidence is not confined to the constellation.** Soft-decision LLRs carry the
+  demodulator's own per-bit confidence through de-interleaving into the FEC decoder, and a
+  significance test turns a raw decode into a statistical statement rather than a bare
+  success flag. This currently applies to Viterbi and LDPC, which have a natural soft-input
+  form; Reed-Solomon's classical decoding does not, and stays hard-decision only rather
+  than being presented as something it isn't.
+- **One canonical representation across acquisition formats.** A headerless `.iq`
+  recording and a `.wav` recording carry their sample data differently and, in the `.iq`
+  case, no metadata at all. Both are read into the same `RawSignal` object, so every stage
+  from isolation onward does not need to know, or care, which file format a recording
+  arrived in.
+- **Toward joint modulation and coding validation.** De-interleaving and FEC are already
+  searched jointly with each other, not as a fixed chain: a de-interleaver/FEC pair is only
+  accepted if the combination shows real supporting evidence. Today that joint search runs
+  on the bits of the already-selected best-supported modulation hypothesis. The natural
+  extension of the same evidence-fusion principle, and a direction this architecture is
+  built to support rather than a claim made about the current release, is to let that
+  downstream recovery evidence feed back into modulation-hypothesis scoring itself.
+
+<br/>
+
 ## 🧩 Features
 
 | Module | Description |
@@ -119,7 +171,7 @@ SigIQ follows a strict **two-layer, one-direction** architecture: control only e
 data only ever flows back up as a single result object, and the DSP engine has no idea a GUI exists.
 
 <div align="center">
-<img src="public/arch.png" alt="SigIQ architecture diagram" width="720"/>
+<img src="public/arch.png" alt="SigIQ architecture diagram" width="100%"/>
 </div>
 
 | Layer | Role |
@@ -145,7 +197,7 @@ python -m tests.test_ldpc
 Implemented in `core/pipeline/analyzer.py`:
 
 <div align="center">
-<img src="public/FlowChart.jpeg" alt="SigIQ pipeline flowchart" width="720"/>
+<img src="public/FlowChart.jpeg" alt="SigIQ pipeline flowchart" width="100%"/>
 </div>
 
 **Reading the diagram:**
@@ -311,7 +363,7 @@ bandwidth, and which preprocessing profile was used. Below that, the waveform en
 (time versus frequency) of that isolated segment.
 
 <div align="center">
-<img src="public/03_signal_isolation.png" alt="Signal Isolation tab" width="720"/>
+<img src="public/03_signal_isolation.png" alt="Signal Isolation tab" width="100%"/>
 </div>
 
 ### Tab: Evidence Extraction
@@ -321,7 +373,7 @@ PAPR, spectral flatness, kurtosis, skewness), each tagged with its source in the
 the re-estimation search trace and the spectrum (PSD) plot they were measured from.
 
 <div align="center">
-<img src="public/04_evidence_extraction.png" alt="Evidence Extraction tab" width="720"/>
+<img src="public/04_evidence_extraction.png" alt="Evidence Extraction tab" width="100%"/>
 </div>
 
 ### Tab: Hypothesis & Demodulation
@@ -331,7 +383,7 @@ and the pipeline's verdict rule, plus every candidate that was actually demodula
 just the winner, with its own per-metric breakdown.
 
 <div align="center">
-<img src="public/05_hypothesis_demodulation.png" alt="Hypothesis and Demodulation tab" width="720"/>
+<img src="public/05_hypothesis_demodulation.png" alt="Hypothesis and Demodulation tab" width="100%"/>
 </div>
 
 ### Tab: Recovery Information
@@ -341,7 +393,7 @@ and whether soft per-bit LLR information reached the decoder. On the right: head
 with the false-alarm probability that makes a "header found" claim a statistical statement, not a guess.
 
 <div align="center">
-<img src="public/06_recovery_information.png" alt="Recovery Information tab" width="720"/>
+<img src="public/06_recovery_information.png" alt="Recovery Information tab" width="100%"/>
 </div>
 
 <br/>

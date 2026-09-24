@@ -19,3 +19,7 @@ venv/
 
 # reference README from another project, kept locally for style reference only
 /README_Demo.md
+
+# technical report LaTeX source and compiled PDF, kept locally only
+/NSS_Technical_Report.tex
+/NSS_Technical_Report.pdf
