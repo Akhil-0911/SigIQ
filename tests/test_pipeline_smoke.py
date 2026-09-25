@@ -3,9 +3,9 @@ a synthetic BPSK signal, proving the pipeline is independently executable and
 testable as required by the architecture."""
 import numpy as np
 
-from core.pipeline.models import RawSignal
-from core.pipeline.pipeline_config import PipelineConfig
-from core.pipeline.analyzer import run_pipeline
+from sigiq.core.pipeline.models import RawSignal
+from sigiq.core.pipeline.pipeline_config import PipelineConfig
+from sigiq.core.pipeline.analyzer import run_pipeline
 
 
 def make_synthetic_bpsk(n_symbols=800, sps=8, sample_rate=48000.0, snr_db=25.0, seed=1):

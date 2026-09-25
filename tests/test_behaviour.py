@@ -5,13 +5,13 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from core.pipeline.models import RawSignal
-from core.pipeline.pipeline_config import PipelineConfig
-from core.pipeline.analyzer import run_pipeline, _search_recovery
-from core.pipeline.reestimation import SearchPoint, coordinate_search
-from core.scoring.verdict import decide_verdict, DETERMINED, AMBIGUOUS, INSUFFICIENT, USER_SELECTED
-from core.correlation.header_detection import detect_header, COMMON_SYNC_WORDS
-from core.correlation.payload_detection import bits_to_hex, bits_to_bytes
+from sigiq.core.pipeline.models import RawSignal
+from sigiq.core.pipeline.pipeline_config import PipelineConfig
+from sigiq.core.pipeline.analyzer import run_pipeline, _search_recovery
+from sigiq.core.pipeline.reestimation import SearchPoint, coordinate_search
+from sigiq.core.scoring.verdict import decide_verdict, DETERMINED, AMBIGUOUS, INSUFFICIENT, USER_SELECTED
+from sigiq.core.correlation.header_detection import detect_header, COMMON_SYNC_WORDS
+from sigiq.core.correlation.payload_detection import bits_to_hex, bits_to_bytes
 
 from tests.test_accuracy_report import make_signal, _deterministic_seed
 

@@ -3,9 +3,9 @@ rate and bits, run them through the real pipeline, and measure how close the
 output is to the known truth (not just 'best hypothesis label matches')."""
 import numpy as np
 
-from core.pipeline.models import RawSignal
-from core.pipeline.pipeline_config import PipelineConfig
-from core.pipeline.analyzer import run_pipeline
+from sigiq.core.pipeline.models import RawSignal
+from sigiq.core.pipeline.pipeline_config import PipelineConfig
+from sigiq.core.pipeline.analyzer import run_pipeline
 
 
 def make_signal(modulation, n_symbols=1000, sps=8, sample_rate=48000.0, snr_db=20.0, seed=0):

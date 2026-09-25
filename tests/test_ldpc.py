@@ -1,7 +1,7 @@
 """LDPC (IEEE 802.11n n=648, R=3/4): encode/decode round trip and negative control."""
 import numpy as np
 
-from core.fec.ldpc import ldpc_encode, ldpc_decode, parity_check_matrix, K, N
+from sigiq.core.fec.ldpc import ldpc_encode, ldpc_decode, parity_check_matrix, K, N
 
 
 def test_ldpc():
