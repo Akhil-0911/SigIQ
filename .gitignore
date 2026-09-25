@@ -27,8 +27,8 @@ venv/
 /NSS_Technical_Report.out
 
 # PyInstaller build output -- rebuild locally with: pwsh packaging/build_exe.ps1
+# (the root-level /SigIQ.exe itself IS tracked, kept in sync manually on release)
 /build/
 /dist/
-/SigIQ.exe
 /packaging/build/
 /packaging/dist/
