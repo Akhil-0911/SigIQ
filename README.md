@@ -12,6 +12,8 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-5C6BC0?style=for-the-badge)](#-installation)
 [![Tests](https://img.shields.io/badge/Tests-15%2F15%20passing-2E7D32?style=for-the-badge)](#-testing)
 [![No hardcoding](https://img.shields.io/badge/Results-never%20hardcoded-C62828?style=for-the-badge)](#-features)
+[![CI](https://img.shields.io/github/actions/workflow/status/Akhil-0911/SigIQ/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/Akhil-0911/SigIQ/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 <br/>
 
@@ -546,9 +548,15 @@ pytest                                 # runs the pytest-collectible tests (test
 
 ## 🤝 Contributing
 
-This project doesn't have a public issue/PR workflow set up yet. If that changes, contribution
-guidelines will be added here. For now, the most useful thing a reader can do is run the test suite
-above and check the [Known Limitations](#️-known-limitations) section before assuming something is a bug.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get set up and what to check before opening a
+pull request, and the [Code of Conduct](CODE_OF_CONDUCT.md) for how discussion here is expected to
+go. Every push and pull request against `main` runs the test suite via
+[GitHub Actions](.github/workflows/ci.yml). Found a security issue rather than a regular bug? See
+[SECURITY.md](SECURITY.md) instead of opening a public issue. Otherwise, the most useful thing a
+reader can do is run the test suite above and check the
+[Known Limitations](#️-known-limitations) section before assuming something is a bug.
+
+This project is [MIT licensed](LICENSE).
 
 <br/>
 
