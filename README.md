@@ -292,6 +292,12 @@ flowchart LR
 
 ## 🚀 Installation
 
+**Windows, no Python required:** download the latest standalone build from
+[**Releases**](https://github.com/Akhil-0911/SigIQ/releases/latest) and run `SigIQ.exe` directly, or grab it
+straight from [this link](https://github.com/Akhil-0911/SigIQ/releases/latest/download/SigIQ.exe).
+
+**From source:**
+
 ```bash
 # conda (recommended): creates the "iqfile" environment
 conda env create -f environment.yml
