@@ -151,7 +151,7 @@ concrete rather than aspirational:
 <br/>
 
 **Never hardcode a detected result, confidence value, sample rate, FEC outcome, or plot value.**
-Every number shown in the UI is computed from the loaded signal, on that run, by the code in `core/`.
+Every number shown in the UI is computed from the loaded signal, on that run, by the code in `src/sigiq/core/`.
 Some concrete guarantees that follow from that rule:
 
 - A **"decoded"** result only appears if a decoder's parity/syndrome check genuinely passes, or a Viterbi decode's bit-mismatch rate is statistically far enough below what a random stream produces (a z-test against a random-stream baseline, not a fixed threshold).
@@ -176,11 +176,11 @@ data only ever flows back up as a single result object, and the DSP engine has n
 
 | Layer | Role |
 |---|---|
-| **`gui/`** (Tkinter UI) | File input and configuration, the four result tabs, and the plots, all in `app.py` and `plots.py`. Its only job is to call `run_pipeline()` and render whatever comes back; it contains no signal-processing code of its own. |
-| **`core/`** (DSP engine) | Twelve packages covering the whole signal chain, from loading through the pipeline orchestrator itself. None of them import anything from `gui/`, which is what makes `core/` runnable and testable completely on its own. |
-| **`AnalysisResult`** | The one object `core/` hands back: estimated parameters, scored hypotheses, recovered bits, a provenance label for every value, and the visualization data the plots render. The GUI never reaches back into `core/` for anything not already in this object. |
+| **`src/sigiq/gui/`** (Tkinter UI) | File input and configuration, the four result tabs, and the plots, all in `app.py` and `plots.py`. Its only job is to call `run_pipeline()` and render whatever comes back; it contains no signal-processing code of its own. |
+| **`src/sigiq/core/`** (DSP engine) | Twelve packages covering the whole signal chain, from loading through the pipeline orchestrator itself. None of them import anything from `src/sigiq/gui/`, which is what makes `src/sigiq/core/` runnable and testable completely on its own. |
+| **`AnalysisResult`** | The one object `src/sigiq/core/` hands back: estimated parameters, scored hypotheses, recovered bits, a provenance label for every value, and the visualization data the plots render. The GUI never reaches back into `src/sigiq/core/` for anything not already in this object. |
 
-`core/` is directly testable and runnable with no GUI involved at all. See `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full pipeline:
+`src/sigiq/core/` is directly testable and runnable with no GUI involved at all. See `tests/test_pipeline_smoke.py`, which builds a synthetic BPSK signal and runs it through the full pipeline:
 
 ```bash
 python -m tests.test_pipeline_smoke
@@ -194,7 +194,7 @@ python -m tests.test_ldpc
 
 ## 🔀 Pipeline Flow
 
-Implemented in `core/pipeline/analyzer.py`:
+Implemented in `src/sigiq/core/pipeline/analyzer.py`:
 
 <div align="center">
 <img src="public/FlowChart.jpeg" alt="SigIQ pipeline flowchart" width="100%"/>
@@ -265,7 +265,7 @@ new preprocessing profile.
 
 ### Verdict decision logic
 
-Implemented in `core/scoring/verdict.py`, checked in this exact order:
+Implemented in `src/sigiq/core/scoring/verdict.py`, checked in this exact order:
 
 ```mermaid
 flowchart LR
@@ -292,19 +292,25 @@ flowchart LR
 
 ## 🚀 Installation
 
+**Windows, no Python required:** download the latest standalone build from
+[**Releases**](https://github.com/Akhil-0911/SigIQ/releases/latest) and run `SigIQ.exe` directly, or grab it
+straight from [this link](https://github.com/Akhil-0911/SigIQ/releases/latest/download/SigIQ.exe).
+
+**From source:**
+
 ```bash
 # conda (recommended): creates the "iqfile" environment
 conda env create -f environment.yml
 conda activate iqfile
 
 # or plain pip on Python 3.10+ (Tkinter must be available)
-pip install -r requirements.txt
+pip install -e .
 ```
 
 **Run it:**
 
 ```bash
-python main.py
+python main.py       # or: python -m sigiq, or just: sigiq
 ```
 
 The window opens maximized. The left panel handles file input and configuration. The right panel has
@@ -406,7 +412,7 @@ with the false-alarm probability that makes a "header found" claim a statistical
 |---|---|---|
 | **Language** | Python 3.10 | App and engine logic |
 | **GUI Framework** | Tkinter + ttk | Native desktop UI, no browser/server involved |
-| **Numerical Core** | numpy 2.2.6 | Array math throughout `core/` |
+| **Numerical Core** | numpy 2.2.6 | Array math throughout `src/sigiq/core/` |
 | **DSP** | scipy 1.15.3 | Filtering, spectral analysis, statistics |
 | **Plotting** | matplotlib 3.10.9 | Waveform, spectrum, waterfall, constellation plots |
 | **FEC** | reedsolo 1.7.0 | Reed-Solomon encode/decode |
@@ -447,15 +453,15 @@ labelled user-provided, and the re-estimation search stops on tolerance and iter
 <summary><b>🐛 Correctness bugs found and fixed (click to expand)</b></summary>
 <br/>
 
-1. The symbol-rate estimator used only `|signal|^2`, which is flat for constant-envelope modulations. A transition-energy feature and a signed instantaneous-frequency feature were added (`core/feature_extraction/cyclostationary.py`).
-2. M-th-power (Costas) phase correction is invalid for QAM. It was replaced with a decision-directed phase search (`core/demodulation/synchronization.py`), and EVM is normalised by each constellation's minimum point spacing.
-3. FSK evidence was derived from the same noisy samples it judged. The tone grid now comes from the PSD, with a chi-square noise-significance test, and from the unfiltered signal (`core/demodulation/fsk.py`).
-4. The old SNR estimator assumed the signal sat in the centre of the band and read 13 dB at a true 25 dB. It is now the M2M4 moment estimator using each hypothesis's own envelope kurtosis (`core/estimation/snr.py`).
-5. A symbol rate found at a sub-harmonic of the true clock demodulates to equally clean symbols, so EVM cannot reveal it. The timing metric now measures the clock line at the tested rate, and the search prefers the higher rate on a tie only if its line is meaningfully stronger (`core/pipeline/reestimation.py`, `HARMONIC_TIE_MARGIN`).
+1. The symbol-rate estimator used only `|signal|^2`, which is flat for constant-envelope modulations. A transition-energy feature and a signed instantaneous-frequency feature were added (`src/sigiq/core/feature_extraction/cyclostationary.py`).
+2. M-th-power (Costas) phase correction is invalid for QAM. It was replaced with a decision-directed phase search (`src/sigiq/core/demodulation/synchronization.py`), and EVM is normalised by each constellation's minimum point spacing.
+3. FSK evidence was derived from the same noisy samples it judged. The tone grid now comes from the PSD, with a chi-square noise-significance test, and from the unfiltered signal (`src/sigiq/core/demodulation/fsk.py`).
+4. The old SNR estimator assumed the signal sat in the centre of the band and read 13 dB at a true 25 dB. It is now the M2M4 moment estimator using each hypothesis's own envelope kurtosis (`src/sigiq/core/estimation/snr.py`).
+5. A symbol rate found at a sub-harmonic of the true clock demodulates to equally clean symbols, so EVM cannot reveal it. The timing metric now measures the clock line at the tested rate, and the search prefers the higher rate on a tie only if its line is meaningfully stronger (`src/sigiq/core/pipeline/reestimation.py`, `HARMONIC_TIE_MARGIN`).
 6. Cyclic-line prominence against the global median was fooled by filtered noise. It now uses a local noise floor.
 7. Header matches, Viterbi "success," and FEC decodes on random data were false positives. Each now has a statistical test against chance.
 8. The manual symbol rate was collected by the GUI but never used.
-9. FEC decoding used only hard 0/1 bits, discarding the demodulator's own confidence per bit. A soft-decision (LLR) path now runs end to end from demodulation, through de-interleaving, into Viterbi/LDPC decoding (`core/demodulation/soft_bits.py`), verified to cut Viterbi output BER from 14.6% to 0.4% and to let LDPC converge at an SNR where the hard-decision decoder failed outright.
+9. FEC decoding used only hard 0/1 bits, discarding the demodulator's own confidence per bit. A soft-decision (LLR) path now runs end to end from demodulation, through de-interleaving, into Viterbi/LDPC decoding (`src/sigiq/core/demodulation/soft_bits.py`), verified to cut Viterbi output BER from 14.6% to 0.4% and to let LDPC converge at an SNR where the hard-decision decoder failed outright.
 
 </details>
 
@@ -495,26 +501,29 @@ Documented, not hidden.
 ## 📁 Project Layout
 
 ```text
-core/            signal-processing engine
-  io/                  read .iq / .wav, parse metadata
-  preprocessing/       normalization, denoising, resampling, retry profiles
-  isolation/           spectrum, band/channel detection, segmentation
-  feature_extraction/  spectral, temporal, statistical, cyclostationary
-  estimation/          sample rate, symbol rate, carrier, SNR
-  hypotheses/          candidate generation (modulation, FEC, interleaving)
-  scoring/             evidence scoring and confidence
-  demodulation/        PSK, QAM, FSK, synchronization, soft-bit (LLR) computation
-  deinterleaving/      block, convolutional, diagonal, pseudo-random
-  fec/                 Viterbi, Reed-Solomon, concatenated, LDPC
-  correlation/         bit-stream correlation, header/payload detection
-  pipeline/            orchestrator (analyzer), config, stages, result models
-gui/             Tkinter desktop UI (app.py, plots.py, style.py); launched by main.py
+src/sigiq/
+  core/            signal-processing engine
+    io/                  read .iq / .wav, parse metadata
+    preprocessing/       normalization, denoising, resampling, retry profiles
+    isolation/           spectrum, band/channel detection, segmentation
+    feature_extraction/  spectral, temporal, statistical, cyclostationary
+    estimation/          sample rate, symbol rate, carrier, SNR
+    hypotheses/          candidate generation (modulation, FEC, interleaving)
+    scoring/             evidence scoring and confidence
+    demodulation/        PSK, QAM, FSK, synchronization, soft-bit (LLR) computation
+    deinterleaving/      block, convolutional, diagonal, pseudo-random
+    fec/                 Viterbi, Reed-Solomon, concatenated, LDPC
+    correlation/         bit-stream correlation, header/payload detection
+    pipeline/            orchestrator (analyzer), config, stages, result models
+  gui/             Tkinter desktop UI (app.py, plots.py, style.py)
+  assets/          icon and logo files the app loads at runtime
 tests/           smoke, behaviour, LDPC and accuracy tests
 samples/         small synthetic .iq / .wav files for trying the app
-public/          logo, flowchart, and interface screenshots used in this README
-main.py          entry point (launches the GUI)
-environment.yml  conda environment (Python 3.10, Tk 8.6, pinned packages)
-requirements.txt the same pinned packages for pip
+public/          flowchart and interface screenshots used in this README (not used by the app itself)
+packaging/       PyInstaller spec and build script for the standalone .exe
+main.py          entry point (launches the GUI; also: python -m sigiq, or the sigiq console script)
+pyproject.toml   package metadata, dependencies, and pytest config (single source of truth)
+environment.yml  conda environment (Python 3.10, Tk 8.6); installs via pip install -e .
 ```
 
 <br/>
@@ -528,6 +537,7 @@ python -m tests.test_pipeline_smoke    # synthetic BPSK end to end
 python -m tests.test_behaviour         # honesty/behaviour checks (15 tests, ~40 s)
 python -m tests.test_ldpc              # LDPC round trip + negative control
 python -m tests.test_accuracy_report   # ground-truth accuracy table (~25 s)
+pytest                                 # runs the pytest-collectible tests (test_behaviour, test_ldpc)
 ```
 
 <br/>

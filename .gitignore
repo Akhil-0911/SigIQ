@@ -4,6 +4,8 @@ __pycache__/
 venv/
 .vscode/
 .DS_Store
+*.egg-info/
+.pytest_cache/
 
 # large external validation datasets -- not part of the codebase, dropped in
 # for one-off testing (see CLAUDE.md); too large to version
@@ -24,7 +26,9 @@ venv/
 /NSS_Technical_Report.log
 /NSS_Technical_Report.out
 
-# PyInstaller build output -- rebuild locally with:
-# pyinstaller --name SigIQ --onefile --windowed --icon public/logo.ico --add-data "public;public" main.py
+# PyInstaller build output -- rebuild locally with: pwsh packaging/build_exe.ps1
 /build/
 /dist/
+/SigIQ.exe
+/packaging/build/
+/packaging/dist/

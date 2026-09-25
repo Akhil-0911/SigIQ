@@ -1,4 +1,4 @@
-"""Entry point: launches the Tkinter desktop application."""
+"""Enables `python -m sigiq`."""
 from sigiq.gui.app import main
 
 if __name__ == "__main__":

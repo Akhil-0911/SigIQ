@@ -5,13 +5,13 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from core.pipeline.models import RawSignal
-from core.pipeline.pipeline_config import PipelineConfig
-from core.pipeline.analyzer import run_pipeline, _search_recovery
-from core.pipeline.reestimation import SearchPoint, coordinate_search
-from core.scoring.verdict import decide_verdict, DETERMINED, AMBIGUOUS, INSUFFICIENT, USER_SELECTED
-from core.correlation.header_detection import detect_header, COMMON_SYNC_WORDS
-from core.correlation.payload_detection import bits_to_hex, bits_to_bytes
+from sigiq.core.pipeline.models import RawSignal
+from sigiq.core.pipeline.pipeline_config import PipelineConfig
+from sigiq.core.pipeline.analyzer import run_pipeline, _search_recovery
+from sigiq.core.pipeline.reestimation import SearchPoint, coordinate_search
+from sigiq.core.scoring.verdict import decide_verdict, DETERMINED, AMBIGUOUS, INSUFFICIENT, USER_SELECTED
+from sigiq.core.correlation.header_detection import detect_header, COMMON_SYNC_WORDS
+from sigiq.core.correlation.payload_detection import bits_to_hex, bits_to_bytes
 
 from tests.test_accuracy_report import make_signal, _deterministic_seed
 
@@ -137,7 +137,7 @@ def test_recovery_reports_undetermined_without_evidence():
 
 
 def test_ldpc_encoded_stream_is_recovered_through_the_pipeline_stage():
-    from core.fec.ldpc import ldpc_encode, K
+    from sigiq.core.fec.ldpc import ldpc_encode, K
     rng = np.random.default_rng(2)
     info = rng.integers(0, 2, K * 2).astype(np.uint8)
     coded = ldpc_encode(info)
@@ -148,10 +148,10 @@ def test_ldpc_encoded_stream_is_recovered_through_the_pipeline_stage():
 
 
 def test_deinterleavers_invert_their_interleavers():
-    from core.deinterleaving.block import interleave_block, deinterleave_block
-    from core.deinterleaving.diagonal import interleave_diagonal, deinterleave_diagonal
-    from core.deinterleaving.convolutional import interleave_convolutional, deinterleave_convolutional
-    from core.deinterleaving.pseudo_random import interleave_pseudo_random, deinterleave_pseudo_random
+    from sigiq.core.deinterleaving.block import interleave_block, deinterleave_block
+    from sigiq.core.deinterleaving.diagonal import interleave_diagonal, deinterleave_diagonal
+    from sigiq.core.deinterleaving.convolutional import interleave_convolutional, deinterleave_convolutional
+    from sigiq.core.deinterleaving.pseudo_random import interleave_pseudo_random, deinterleave_pseudo_random
     rng = np.random.default_rng(6)
     bits = rng.integers(0, 2, 12 * 20).astype(np.uint8)
 
@@ -171,8 +171,8 @@ def test_deinterleavers_invert_their_interleavers():
 def _framed_coded_signal(interleave, snr_db, seed=4):
     """BPSK carrying: random bits + CCSDS sync word + payload, rate-1/2 convolutionally
     coded and optionally pseudo-randomly interleaved."""
-    from core.fec.convolutional import convolutional_encode
-    from core.deinterleaving.pseudo_random import interleave_pseudo_random
+    from sigiq.core.fec.convolutional import convolutional_encode
+    from sigiq.core.deinterleaving.pseudo_random import interleave_pseudo_random
     rng = np.random.default_rng(seed)
     sync = np.array([int(c) for c in COMMON_SYNC_WORDS["CCSDS_ASM"]], dtype=np.uint8)
     payload = rng.integers(0, 2, 160).astype(np.uint8)
@@ -220,9 +220,9 @@ def test_pure_noise_is_not_classified():
 
 
 def test_coded_streams_are_verified_and_noise_is_not():
-    from core.fec.convolutional import convolutional_encode
-    from core.fec.reed_solomon import rs_encode
-    from core.pipeline.analyzer import _apply_fec_decode
+    from sigiq.core.fec.convolutional import convolutional_encode
+    from sigiq.core.fec.reed_solomon import rs_encode
+    from sigiq.core.pipeline.analyzer import _apply_fec_decode
     rng = np.random.default_rng(5)
     info = rng.integers(0, 2, 400).astype(np.uint8)
 
