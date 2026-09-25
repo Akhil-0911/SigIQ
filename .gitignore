@@ -17,11 +17,14 @@ venv/
 /CLAUDE.md
 /docs/
 
-# reference README from another project, kept locally for style reference only
-/README_Demo.md
 
 # technical report LaTeX source and compiled PDF, kept locally only
 /NSS_Technical_Report.tex
 /NSS_Technical_Report.aux
 /NSS_Technical_Report.log
 /NSS_Technical_Report.out
+
+# PyInstaller build output -- rebuild locally with:
+# pyinstaller --name SigIQ --onefile --windowed --icon public/logo.ico --add-data "public;public" main.py
+/build/
+/dist/

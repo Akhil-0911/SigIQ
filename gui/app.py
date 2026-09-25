@@ -69,6 +69,13 @@ class SignalAnalysisApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Signal Analysis Workstation")
+        icon_ico = os.path.join(os.path.dirname(__file__), "..", "public", "icon.ico")
+        try:
+            self.iconbitmap(default=icon_ico)
+        except tk.TclError:
+            icon_img = Image.open(os.path.join(os.path.dirname(__file__), "..", "public", "icon.png"))
+            self._window_icon = ImageTk.PhotoImage(icon_img)
+            self.iconphoto(True, self._window_icon)
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         width, height = min(1500, int(sw * 0.94)), min(980, int(sh * 0.92))
         self.geometry(f"{width}x{height}+{(sw - width) // 2}+{max(0, (sh - height) // 2 - 20)}")
