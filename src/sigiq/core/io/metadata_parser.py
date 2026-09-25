@@ -17,7 +17,7 @@ def parse_wav_metadata(path: str) -> dict:
 
 
 def parse_iq_metadata(path: str, sample_rate: float = None, dtype_name: str = "float32") -> dict:
-    from core.io.signal_format import dtype_for
+    from sigiq.core.io.signal_format import dtype_for
     size_bytes = os.path.getsize(path)
     itemsize = dtype_for(dtype_name).itemsize
     num_samples = size_bytes // (itemsize * 2)
